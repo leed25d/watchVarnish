@@ -456,6 +456,7 @@ while (loopControl(\%runTime)) {
     getServerStats($loopTime);
 
     ##  dump server stats on STDOUT
+    system('clear');
     print "\n\n${\(fmtHeaderLine())}\n";
     for my $server (@varnishServers) {
         printf("%-15.15s %s\n", $server, serverStats($server));
