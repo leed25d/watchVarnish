@@ -180,6 +180,8 @@ for my $symbol (keys(%optFields)) {
     $descPattern .= (length($descPattern) ? '|' : '') . $patHash{$symbol}
 }
 $descPattern= "($descPattern)\$";
+
+
 ##print "\$descPattern= $descPattern\n";
 
 $SIG{INT} = \&programOff;
@@ -272,7 +274,6 @@ sub getServerStats {
         $p->{'sampleTime'}= $time;
 
         my $ap= getCurrentStats($server);
-
         if (arraysDifferent($p->{'current'}, $ap)) {
             if (scalar(@{$p->{'current'}}) && arraysDifferent($p->{'current'}, $p->{'last'})){
                 $p->{'last'}= $p->{'current'};
@@ -282,6 +283,10 @@ sub getServerStats {
         $p->{'last'}= $p->{'current'} unless  scalar(@{$p->{'last'}});
     }
 }
+
+##  two arrays are the same if
+##    --they have the same cardinality AND
+##    --their values are pairwise equivalent
 sub arraysDifferent {
     my ($p1, $p2)= @_;
     return 1 if (scalar(@$p1) != scalar(@$p2));
@@ -297,12 +302,60 @@ sub fmtHeaderLine {
     ##  only build it the first time.
     return $ret if $ret;
 
-    $ret .= sprintf("%-15.15s", 'server');
+    $ret .= sprintf("%-15.15s ", 'server');
     for my $field (sort {$optFields{$a} <=> $optFields{$b}} keys(%optFields)) {
         next if ($field eq 'uptime');
-        $ret .= sprintf("%20.20s", $field)
+        $ret .= sprintf("%20.20s ", $field)
     }
-    return "$ret";
+    $ret .= sprintf("%20.20s", 'hit_ratio');
+
+    return($ret);
+}
+
+sub  hitFields{
+    my ($ap)= @_;
+    ##  The @$ap array has a list of strings that look like this:
+    ##      '        2501  Client connections accepted',
+    ##      '          20  Client requests received',
+    ##      '          18  Cache hits',
+    ##      '           2  Cache misses',
+    my %hitFields=();
+
+    my @ary= grep {/$patHash{'client_req'}/} (@$ap);
+    ($hitFields{'client_req'}= (grep {/$patHash{'client_req'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+
+    @ary= grep {/$patHash{'cache_hit'}/} (@$ap);
+    ($hitFields{'cache_hit'}= (grep {/$patHash{'cache_hit'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+
+    return(\%hitFields);
+}
+
+sub  deltaSymb{
+    my ($cp, $lp, $symb)= @_;
+    die "deltaSymb() undefined symbol error" unless (exists($cp->{$symb}) && exists($lp->{$symb}));
+
+    my $delta= $cp->{$symb} - $lp->{$symb};
+    if ($delta < 0) {
+        print "cp Hash==>>@{[Dumper($cp)]}\n";
+        print "lp Hash==>>@{[Dumper($lp)]}\n";
+        print "symb= $symb, delta= $delta\n";
+        die "deltaSymb() delta calculation error";
+    }
+    return 1 if ($delta == 0);
+    return $delta;
+}
+
+sub calcHitRatio {
+    my ($s)= @_;
+    my $retVal='';
+
+    my $cur= hitFields($varnishServerStats{$s}->{'current'});
+    my $lst= hitFields($varnishServerStats{$s}->{'last'});
+
+    my $perCent= (deltaSymb($cur, $lst, 'cache_hit') / deltaSymb($cur, $lst, 'client_req')) * 100;
+    $retVal= sprintf("%20.20s", sprintf(" %6.2f", $perCent));
+
+    return($retVal);
 }
 
 sub serverStats {
@@ -312,12 +365,12 @@ sub serverStats {
 
     ##  no telnet obj:  Couldn't connect to varnish server
     return "No Connection to server" unless defined($varnishServerStats{$s}->{'telnetObj'});
-
     ##  empty array:  timed out reading data.
-    my @current= @{$varnishServerStats{$s}->{'current'}};
-    return "No Data this Cycle" unless scalar(@current);
+    return "No Data this cycle" unless scalar(@{$varnishServerStats{$s}->{'current'}});
 
-    my @last= @{$varnishServerStats{$s}->{'last'}};
+    ##  grep out fields for display
+    my @current= grep {/$descPattern/} (@{$varnishServerStats{$s}->{'current'}});
+    my @last= grep {/$descPattern/} (@{$varnishServerStats{$s}->{'last'}});
 
     for (my $i=0; $i < scalar(@current); $i++) {
         my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
@@ -334,6 +387,8 @@ sub serverStats {
         $ret .= sprintf("%20.20s ", sprintf("%7d %+7d",
                                             $cur[0], (($cur[0] - $lst[0]) / $deltaSeconds)));
     }
+    $ret .= calcHitRatio($s);
+
     return $ret;
 }
 
@@ -359,8 +414,7 @@ sub getCurrentStats {
 
     $varnishServerStats{$s}->{'getCurrentStatsMessage'}= $errmsg;
     $varnishServerStats{$s}->{'getCurrentStatsRetcode'}= shift @lines if @lines;
-    my @greppedLines= grep {/$descPattern/} (@lines);
-    return(\@greppedLines);
+    return(\@lines);
 }
 
 #########################################################################
@@ -384,19 +438,18 @@ while (loopControl(\%runTime)) {
         printf("%-15.15s %s\n", $server, serverStats($server));
     }
 
-
     ##  if there are unconnected servers then try to reconnect
     my @noConnects;
     for my $server (@varnishServers) {
         push(@noConnects, $server) unless defined($varnishServerStats{$server}->{'telnetObj'});
     }
     ##print "noConnects==>>@{[Dumper(\@noConnects)]}\n";
+
     if (scalar(@noConnects)) {
         my $server= $noConnects[int(rand(scalar(@noConnects)))];
         print "trying to initialize server $server\n";
         $varnishServerStats{$server}->{'telnetObj'}= initializeTelnet($server);
     }
-
     sleep 1;
 }
 
