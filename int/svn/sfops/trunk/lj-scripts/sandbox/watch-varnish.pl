@@ -69,7 +69,8 @@ my @allFields= map {
 $allfieldsFH->close();
 
 ##  map field symbols to the matching descriptions
-my %patHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
+my %symbHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
+my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 
 ########################################################################
 ##                          O P T I O N S                             ##
@@ -118,7 +119,7 @@ my %optFields=();
 
 for my $optionString (@{$clOptions{'fields'}}) {
     for my $optionSymbol (split(',', $optionString)) {
-        next unless exists($patHash{$optionSymbol});
+        next unless exists($symbHash{$optionSymbol});
         $optFields{$optionSymbol}= 1;
     }
 }
@@ -128,7 +129,7 @@ $optFields{'uptime'}= 1;  ##  always include uptime
 ##exit;
 die "fields array is empty.  nothing to do\n" if ((keys(%optFields)) <= 1);
 
-##  establish an ordering relation.  this is the order that fields
+#  establish an ordering relation.  this is the order that fields
 ##  will appear on the output line
 for my $symb (keys(%optFields)) {$optFields{$symb}= optFieldOrder($symb)};
 sub optFieldOrder {
@@ -175,14 +176,23 @@ my @varnishServers= sort keys(%varnishServers);
 
 ##  construct a matching pattern for field descriptions.
 my $descPattern='';
+my @descAry= ();
 for my $symbol (keys(%optFields)) {
-    next unless exists($patHash{$symbol});
-    $descPattern .= (length($descPattern) ? '|' : '') . $patHash{$symbol}
+    next unless exists($symbHash{$symbol});
+    $descPattern .= (length($descPattern) ? '|' : '') . $symbHash{$symbol};
+    push(@descAry, $symbHash{$symbol});
 }
+
+##the descriptions array needs to be sorted into display order
+@descAry= sort {of($a) <=> of($b)} (@descAry);
+sub of {
+    my ($p)= @_;
+    return($optFields{$descHash{$p}});
+}
+
 $descPattern= "($descPattern)\$";
-
-
-##print "\$descPattern= $descPattern\n";
+##  print "\$descPattern= $descPattern\n";
+##  print "\@descAry= @{[Dumper(\@descAry)]}\n";
 
 $SIG{INT} = \&programOff;
 sub programOff {
@@ -321,11 +331,11 @@ sub  hitFields{
     ##      '           2  Cache misses',
     my %hitFields=();
 
-    my @ary= grep {/$patHash{'client_req'}/} (@$ap);
-    ($hitFields{'client_req'}= (grep {/$patHash{'client_req'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+    my @ary= grep {/$symbHash{'client_req'}/} (@$ap);
+    ($hitFields{'client_req'}= (grep {/$symbHash{'client_req'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
 
-    @ary= grep {/$patHash{'cache_hit'}/} (@$ap);
-    ($hitFields{'cache_hit'}= (grep {/$patHash{'cache_hit'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+    @ary= grep {/$symbHash{'cache_hit'}/} (@$ap);
+    ($hitFields{'cache_hit'}= (grep {/$symbHash{'cache_hit'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
 
     return(\%hitFields);
 }
@@ -368,9 +378,17 @@ sub serverStats {
     ##  empty array:  timed out reading data.
     return "No Data this cycle" unless scalar(@{$varnishServerStats{$s}->{'current'}});
 
-    ##  grep out fields for display
-    my @current= grep {/$descPattern/} (@{$varnishServerStats{$s}->{'current'}});
-    my @last= grep {/$descPattern/} (@{$varnishServerStats{$s}->{'last'}});
+    my %curDescLines= map {descValue($_)} (@{$varnishServerStats{$s}->{'current'}});
+    my %lastDescLines= map {descValue($_)} (@{$varnishServerStats{$s}->{'last'}});
+    sub descValue {
+        my($sLine)= @_;
+        my $temp;
+        my @ary= (($temp= $sLine) =~ /\s+(\S*)\s+(.*)$/);
+        return () unless (scalar(@ary) == 2);
+        return($ary[1], $sLine);
+    }
+    my @current= map {(exists($curDescLines{$_})) ? $curDescLines{$_} : '***'} @descAry;
+    my @last= map {(exists($lastDescLines{$_})) ? $lastDescLines{$_} : '***'} @descAry;
 
     for (my $i=0; $i < scalar(@current); $i++) {
         my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
@@ -381,11 +399,16 @@ sub serverStats {
     }
 
     for (my $i=0; $i < scalar(@current); $i++) {
-        my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
-        my @lst= $last[$i] =~ /\s*(\S*)\s*(.*)$/;
-        next if $cur[1] eq 'Client uptime';
-        $ret .= sprintf("%20.20s ", sprintf("%7d %+7d",
-                                            $cur[0], (($cur[0] - $lst[0]) / $deltaSeconds)));
+        my $str='';
+        if ($current[$i] eq '***' || $last[$i] eq '***') {
+            $str= '***';
+        } else {
+            my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
+            my @lst= $last[$i] =~ /\s*(\S*)\s*(.*)$/;
+            next if $cur[1] eq 'Client uptime';
+            $str= sprintf("%7d %+7d", $cur[0], (($cur[0] - $lst[0]) / $deltaSeconds));
+        }
+        $ret .= sprintf("%20.20s ", $str);
     }
     $ret .= calcHitRatio($s);
 
