@@ -13,6 +13,10 @@ use Data::Dumper;
 use FileHandle;
 $|=1;
 
+my $connectTimeoutSecs= 8;
+my $readTimeoutSecs=1;
+my $slewTimeoutSecs=1;
+
 my $usage = <<USAGE;
 
 $0 - Monitor Varnish Stats.
@@ -111,6 +115,7 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
 my @defaultFieldSymbols= ('client_conn,client_req,cache_hit',);
 $clOptions{'fields'}= \@defaultFieldSymbols unless @{$clOptions{'fields'}};
 my %optFields=();
+
 for my $optionString (@{$clOptions{'fields'}}) {
     for my $optionSymbol (split(',', $optionString)) {
         next unless exists($patHash{$optionSymbol});
@@ -118,6 +123,7 @@ for my $optionString (@{$clOptions{'fields'}}) {
     }
 }
 $optFields{'uptime'}= 1;  ##  always include uptime
+
 ##print "Fields Hash==>>@{[Dumper(\%optFields)]}\n";
 ##exit;
 die "fields array is empty.  nothing to do\n" if ((keys(%optFields)) <= 1);
@@ -226,16 +232,16 @@ sub  countSeconds{
 }
 
 
-##  Given A host name, initialize a telnet objct for that host
+##  Given A host name, initialize a telnet object for that host
 sub initializeTelnet {
     my ($s)= @_;
     my $telnet = new Net::Telnet();
-    $telnet->open(Host => $s,Port => 6082, Timeout => 10);
+    $telnet->open(Host => $s,Port => 6082, Timeout => $connectTimeoutSecs);
     my $errmsg='OK';
 
     ##  skip lines to 'quit'
     while (1) {
-        my $line= $telnet->getline(Errmode => "return", Timeout => 5);
+        my $line= $telnet->getline(Errmode => "return", Timeout => $slewTimeoutSecs);
         if (!$line) {
             $errmsg= $telnet->errmsg();
             last;
@@ -246,7 +252,7 @@ sub initializeTelnet {
 
     ##  skip until empty line
     while (1) {
-        my $line= $telnet->getline(Errmode => "return", Timeout => 1);
+        my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
         if (!$line) {
             $errmsg= $telnet->errmsg();
             last;
@@ -285,15 +291,12 @@ sub arraysDifferent {
     foreach my $e (keys(%count)) {return 1 if ($count{$e} != 2)};
     return 0;
 }
-sub dumpServerStats {
-   print "\n\n${\(fmtHeaderLine())}\n";
 
-    for my $server (@varnishServers) {
-        printf("%-15.15s %s\n", $server, serverStats($server));
-    }
-}
+my $ret= '';
 sub fmtHeaderLine {
-    my $ret= '';
+    ##  only build it the first time.
+    return $ret if $ret;
+
     $ret .= sprintf("%-15.15s", 'server');
     for my $field (sort {$optFields{$a} <=> $optFields{$b}} keys(%optFields)) {
         next if ($field eq 'uptime');
@@ -301,6 +304,7 @@ sub fmtHeaderLine {
     }
     return "$ret";
 }
+
 sub serverStats {
     my ($s)= @_;
     my $ret='';
@@ -342,7 +346,7 @@ sub getCurrentStats {
     my @lines=();
     $telnet->print('stats');
     while (1) {
-        my $line= $telnet->getline(Errmode => "return", Timeout => 1);
+        my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
         if (!$line) {
             $errmsg= $telnet->errmsg();
             @lines=();
@@ -358,6 +362,7 @@ sub getCurrentStats {
     my @greppedLines= grep {/$descPattern/} (@lines);
     return(\@greppedLines);
 }
+
 #########################################################################
 ##                             M A I N                                 ##
 #########################################################################
@@ -372,7 +377,13 @@ while (loopControl(\%runTime)) {
     my $loopTime= time;
 
     getServerStats($loopTime);
-    dumpServerStats();
+
+    ##  dump server stats on STDOUT
+    print "\n\n${\(fmtHeaderLine())}\n";
+    for my $server (@varnishServers) {
+        printf("%-15.15s %s\n", $server, serverStats($server));
+    }
+
 
     ##  if there are unconnected servers then try to reconnect
     my @noConnects;
