@@ -112,7 +112,7 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
 ##  print "Run Time hash==>>@{[Dumper(\%runTime)]}\n";
 ##  exit;
 
-##  get a hash of the field symbols which need to be displayed
+##  -f option? list the field symbols which need to be displayed
 my @defaultFieldSymbols= ('client_conn,client_req,cache_hit',);
 $clOptions{'fields'}= \@defaultFieldSymbols unless @{$clOptions{'fields'}};
 my %optFields=();
@@ -139,7 +139,7 @@ sub optFieldOrder {
     }
 }
 
-##  get servers
+##  -s option? get server list
 my %varnishServers;
 if (@{$clOptions{'servers'}}) {
     for my $serverString (@{$clOptions{'servers'}}) {
@@ -148,14 +148,8 @@ if (@{$clOptions{'servers'}}) {
         }
     }
 }
-##  print "Varnish Servers (from options)==>>@{[Dumper(\%varnishServers)]}\n";
-##  exit;
-########################################################################
-##                      E N D    O P T I O N S                        ##
-########################################################################
-##
-##  if no servers were specified on the command line, then read the
-##  server pool file
+
+##  -p option? get pool file.  (-s  binds more tightly than -p)
 unless (keys(%varnishServers)){
     my $poolFile = $clOptions{'pool_file'} || "$ENV{LJHOME}/etc/pool_varnish.txt";
     die "Can't determine pool file" unless defined($poolFile);
@@ -174,6 +168,12 @@ my @varnishServers= sort keys(%varnishServers);
 ##print "Servers array ==>>@{[Dumper(\@varnishServers)]}\n";
 ##exit;
 
+########################################################################
+##                      E N D    O P T I O N S                        ##
+########################################################################
+##
+##  if no servers were specified on the command line, then read the
+##  server pool file
 ##  construct a matching pattern for field descriptions.
 my $descPattern='';
 my @descAry= ();
@@ -402,6 +402,7 @@ sub serverStats {
         my $str='';
         if ($current[$i] eq '***' || $last[$i] eq '***') {
             $str= '***';
+
         } else {
             my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
             my @lst= $last[$i] =~ /\s*(\S*)\s*(.*)$/;
