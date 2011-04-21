@@ -3,19 +3,20 @@
 # This script is intended to be run by ops to monitor the status of
 # the site's varnish servers.
 #
-
 use strict;
 use warnings;
 use Getopt::Long;
-use FileHandle;
 use Net::Telnet;
 use Data::Dumper;
 use FileHandle;
+use threads;
+use threads::shared;
+use Thread::Queue;
 $|=1;
 
-my $connectTimeoutSecs= 8;
-my $readTimeoutSecs=1;
-my $slewTimeoutSecs=1;
+my $connectTimeoutSecs= 5;
+my $readTimeoutSecs=2;
+my $slewTimeoutSecs=2;
 
 my $usage = <<USAGE;
 
@@ -202,49 +203,11 @@ sub programOff {
 my %varnishServerStats;
 
 #########################################################################
-##                      S U B R O U T I N E S                          ##
+##               T H R E A D    S U B R O U T I N E S                  ##
 #########################################################################
-##  Loop Control.  There are a nmber of ways to terminate the program.
-##        --  stop after a given time period
-##        --  stop after a given number of iterations
-##        --  stop on receipt of SIGINT
-##  See the Options code or look at sage or --help
-my %checkIterate= ('iterations' => \&countIterations, 'seconds' => \&countSeconds);
-sub loopControl {
-    my ($rh)= @_;
+my $q = Thread::Queue->new();
+my @threadAry;
 
-    return 0 if $rh->{'stop'};
-    return 1 unless defined ($checkIterate{$rh->{'limit'}});
-    return 1 unless (ref($checkIterate{$rh->{'limit'}}) eq 'CODE');
-    return $checkIterate{$rh->{'limit'}}->($rh);
-}
-
-##  down counter for loop iterations
-sub  countIterations{
-    my ($rh)= @_;
-    $rh->{'maxIterations'}= $rh->{'count'} unless defined($rh->{'maxIterations'});
-    if ((--$rh->{'maxIterations'}) < 0) {
-        $rh->{'reason'}= "Max (${\($rh->{'count'})}) iterations reached";
-        $rh->{'stop'}= 1;
-    }
-    ##print "countIterations() runTime hash==>>   @{[Dumper(\%runTime)]}\n";
-    return(!$rh->{'stop'});
-}
-
-##  down counter for time period
-sub  countSeconds{
-    my ($rh)= @_;
-    $rh->{'startTime'}= time unless defined($rh->{'startTime'});
-    my $checktime= time;
-    if ((time() - $rh->{'startTime'}) > $rh->{'count'}) {
-        $rh->{'reason'}= "Time limit exceeded";
-        $rh->{'stop'}= 1;
-    }
-    return (!$rh->{'stop'});
-}
-
-
-##  Given A host name, initialize a telnet object for that host
 sub initializeTelnet {
     my ($s)= @_;
     my $telnet = new Net::Telnet();
@@ -276,20 +239,147 @@ sub initializeTelnet {
     return($telnet);
 }
 
+sub getCurrentStats {
+    my ($sap)= @_;
+    $sap->{'lines'}= '';
+    return unless my $telnet= $sap->{'tn'};
+
+    my $errmsg= 'OK';
+
+    my @lines=();
+    $telnet->print('stats');
+    while (1) {
+        my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
+        if (!$line) {
+            $errmsg= $telnet->errmsg();
+            @lines=();
+            last;
+        }
+        chomp $line;
+        last unless length($line);
+        push @lines, $line;
+    }
+
+    $sap->{'getCurrentStatsMessage'}= $errmsg;
+    $sap->{'getCurrentStatsRetcode'}= shift @lines if @lines;
+    for my $line (@lines) {$sap->{'lines'} .= "$line\n"};
+    return;
+}
+
+##  Varnish server thread
+sub  doVarnishServer {
+    my ($sName)= @_;
+
+    ##  server attributes pointer.
+    my $sap= {}; ##share($sap);
+
+    do {$sap->{'tn'}= initializeTelnet($sName); sleep 2 unless $sap->{'tn'}} until $sap->{'tn'};
+    ##$sap->{'lastUptime'}= undef;
+    $sap->{'server'}= $sName;
+
+    while (loopControl(\%runTime)) {
+        my $hp= {}; share($hp);
+        $hp->{'server'}= $sap->{'server'};
+
+        getCurrentStats($sap);
+        ##print "dumpsite: sap hash looks like this: @{[Dumper($sap)]}\n";
+
+        for my $a ('getCurrentStatsMessage', 'getCurrentStatsRetcode', 'lines') {$hp->{$a}= $sap->{$a}};
+
+        $q->enqueue($hp);
+
+        sleep 3;
+    }
+}
+
+#########################################################################
+##        M A I N    P R O G R A M    S U B R O U T I N E S            ##
+#########################################################################
+##  Loop Control.  There are a nmber of ways to terminate the program.
+##        --  stop after a given time period
+##        --  stop after a given number of iterations
+##        --  stop on receipt of SIGINT
+##  See the Options code or look at sage or --help
+my %checkIterate= ('iterations' => \&countIterations, 'seconds' => \&countSeconds);
+sub loopControl {
+    my ($rh)= @_;
+
+    return 0 if $rh->{'stop'};
+    return 1 unless (exists($rh->{'limit'}));
+    return 1 unless (exists($checkIterate{$rh->{'limit'}}));
+    return 1 unless (ref($checkIterate{$rh->{'limit'}}) eq 'CODE');
+    return $checkIterate{$rh->{'limit'}}->($rh);
+}
+
+##  down counter for loop iterations
+sub  countIterations{
+    my ($rh)= @_;
+    $rh->{'maxIterations'}= $rh->{'count'} unless defined($rh->{'maxIterations'});
+    if ((--$rh->{'maxIterations'}) < 0) {
+        $rh->{'reason'}= "Max (${\($rh->{'count'})}) iterations reached";
+        $rh->{'stop'}= 1;
+    }
+    ##print "countIterations() runTime hash==>>   @{[Dumper(\%runTime)]}\n";
+    return(!$rh->{'stop'});
+}
+
+##  down counter for time period
+sub  countSeconds{
+    my ($rh)= @_;
+    $rh->{'startTime'}= time unless defined($rh->{'startTime'});
+    my $checktime= time;
+    if ((time() - $rh->{'startTime'}) > $rh->{'count'}) {
+        $rh->{'reason'}= "Time limit exceeded";
+        $rh->{'stop'}= 1;
+    }
+    return (!$rh->{'stop'});
+}
+
 sub getServerStats {
     my ($time)= @_;
 
+##    for my $server (@varnishServers) {
+##        my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
+##        $p->{'sampleTime'}= $time;
+##
+##        my $ap= getCurrentStats($server);
+##        if (arraysDifferent($p->{'current'}, $ap)) {
+##            if (scalar(@{$p->{'current'}}) && arraysDifferent($p->{'current'}, $p->{'last'})){
+##                $p->{'last'}= $p->{'current'};
+##            }
+##            $p->{'current'}= $ap;
+##        }
+##        $p->{'last'}= $p->{'current'} unless  scalar(@{$p->{'last'}});
+##    }
     for my $server (@varnishServers) {
         my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
-        $p->{'sampleTime'}= $time;
+        $p->{'stale'}= 1;
+    }
+    my $count= $q->pending();
+    print "q count= $count\n";
+    return unless $count;
 
-        my $ap= getCurrentStats($server);
+    my @ary;
+    push(@ary, $q->dequeue_nb()) while ($count--);
+    for my $hp (@ary) {
+        my $server= $hp->{'server'};
+        my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
+
+        my @ary= split("\n", $hp->{'lines'});
+        next unless scalar(@ary);
+
+        my $ap= \@ary;
+
         if (arraysDifferent($p->{'current'}, $ap)) {
             if (scalar(@{$p->{'current'}}) && arraysDifferent($p->{'current'}, $p->{'last'})){
                 $p->{'last'}= $p->{'current'};
             }
             $p->{'current'}= $ap;
+            $p->{'stale'}= 0;
         }
+    }
+    for my $server (@varnishServers) {
+        my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
         $p->{'last'}= $p->{'current'} unless  scalar(@{$p->{'last'}});
     }
 }
@@ -329,13 +419,17 @@ sub  hitFields{
     ##      '          20  Client requests received',
     ##      '          18  Cache hits',
     ##      '           2  Cache misses',
-    my %hitFields=();
-
+    my %hitFields=('client_req' => 1, 'cache_hit' => 1);
+    $hitFields{'client_req'}= 1;
     my @ary= grep {/$symbHash{'client_req'}/} (@$ap);
-    ($hitFields{'client_req'}= (grep {/$symbHash{'client_req'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+    if (scalar(@ary)) {
+         ($hitFields{'client_req'}= (grep {/$symbHash{'client_req'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+     }
 
     @ary= grep {/$symbHash{'cache_hit'}/} (@$ap);
-    ($hitFields{'cache_hit'}= (grep {/$symbHash{'cache_hit'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+    if (scalar(@ary)) {
+        ($hitFields{'cache_hit'}= (grep {/$symbHash{'cache_hit'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+    }
 
     return(\%hitFields);
 }
@@ -370,16 +464,14 @@ sub calcHitRatio {
 
 sub serverStats {
     my ($s)= @_;
-    my $ret='';
     my $deltaSeconds=1;
+    my $ret= '';
 
-    ##  no telnet obj:  Couldn't connect to varnish server
-    return "No Connection to server" unless defined($varnishServerStats{$s}->{'telnetObj'});
-    ##  empty array:  timed out reading data.
     return "No Data this cycle" unless scalar(@{$varnishServerStats{$s}->{'current'}});
-
-    my %curDescLines= map {descValue($_)} (@{$varnishServerStats{$s}->{'current'}});
-    my %lastDescLines= map {descValue($_)} (@{$varnishServerStats{$s}->{'last'}});
+    my $p= $varnishServerStats{$s};  ##  for convenience.  a pointer.
+    
+    my %curDescLines= map {descValue($_)} (@{$p->{'current'}});
+    my %lastDescLines= map {descValue($_)} (@{$p->{'last'}});
     sub descValue {
         my($sLine)= @_;
         my $temp;
@@ -412,43 +504,23 @@ sub serverStats {
         $ret .= sprintf("%20.20s ", $str);
     }
     $ret .= calcHitRatio($s);
-
     return $ret;
-}
-
-sub getCurrentStats {
-    my ($s)= @_;
-    my $telnet= $varnishServerStats{$s}->{'telnetObj'};
-    return [] unless $telnet;
-    my $errmsg= 'OK';
-
-    my @lines=();
-    $telnet->print('stats');
-    while (1) {
-        my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
-        if (!$line) {
-            $errmsg= $telnet->errmsg();
-            @lines=();
-            last;
-        }
-        chomp $line;
-        last unless length($line);
-        push @lines, $line;
-    }
-
-    $varnishServerStats{$s}->{'getCurrentStatsMessage'}= $errmsg;
-    $varnishServerStats{$s}->{'getCurrentStatsRetcode'}= shift @lines if @lines;
-    return(\@lines);
 }
 
 #########################################################################
 ##                             M A I N                                 ##
 #########################################################################
-for my $server (@varnishServers) {
-    $varnishServerStats{$server}->{'telnetObj'}= initializeTelnet($server);
-    $varnishServerStats{$server}->{'current'}= [];
-    $varnishServerStats{$server}->{'last'}= [];
-    $varnishServerStats{$server}->{'name'}= $server;
+##  create threads
+for my $server (@varnishServers) {kickOff($server)};
+sub kickOff {
+    my ($s)= @_;
+
+    $varnishServerStats{$s}->{'current'}= [];
+    $varnishServerStats{$s}->{'last'}= [];
+    $varnishServerStats{$s}->{'name'}= $s;
+
+    my $thr= threads->create(sub {doVarnishServer($_[0])}, ($s));
+    push(@threadAry, $thr) if $thr;
 }
 
 while (loopControl(\%runTime)) {
@@ -463,25 +535,7 @@ while (loopControl(\%runTime)) {
         printf("%-15.15s %s\n", $server, serverStats($server));
     }
 
-    ##  if there are unconnected servers then try to reconnect
-    my @noConnects;
-    for my $server (@varnishServers) {
-        push(@noConnects, $server) unless defined($varnishServerStats{$server}->{'telnetObj'});
-    }
-    ##print "noConnects==>>@{[Dumper(\@noConnects)]}\n";
-
-    if (scalar(@noConnects)) {
-        my $server= $noConnects[int(rand(scalar(@noConnects)))];
-        print "trying to initialize server $server\n";
-        $varnishServerStats{$server}->{'telnetObj'}= initializeTelnet($server);
-    }
     sleep 1;
-}
-
-for my $server (@varnishServers) {
-    next unless $varnishServerStats{$server}->{'telnetObj'};
-    $varnishServerStats{$server}->{'telnetObj'}->close();
-    $varnishServerStats{$server}->{'telnetObj'}= undef;
 }
 print "Quitting.  ${\($runTime{'reason'})}\n";
 exit;
