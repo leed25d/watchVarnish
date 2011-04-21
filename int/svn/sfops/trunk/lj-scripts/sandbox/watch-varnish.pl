@@ -216,7 +216,9 @@ my @threadAry;
 sub initializeTelnet {
     my ($s)= @_;
     my $telnet = new Net::Telnet();
-    $telnet->open(Host => $s,Port => 6082, Timeout => $connectTimeoutSecs);
+    eval '$telnet->open(Host => $s,Port => 6082, Timeout => $connectTimeoutSecs)';
+    return undef if $@;
+
     my $errmsg='OK';
 
     ##  skip lines to 'quit'
