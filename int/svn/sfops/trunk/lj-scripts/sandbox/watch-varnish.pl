@@ -295,7 +295,7 @@ sub  doVarnishServer {
 
         $q->enqueue($hp);
 
-        sleep 3;
+        sleep 1;
     }
 }
 
@@ -368,14 +368,13 @@ sub getServerStats {
 
     my @ary;
     push(@ary, $q->dequeue_nb()) while ($count--);
+
     for my $hp (@ary) {
         my $server= $hp->{'server'};
         my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
 
-        my @ary= split("\n", $hp->{'lines'});
-        next unless scalar(@ary);
-
-        my $ap= \@ary;
+        my $ap= [ split("\n", $hp->{'lines'}) ];
+        next unless scalar(@$ap);
 
         if (arraysDifferent($p->{'current'}, $ap)) {
             if (scalar(@{$p->{'current'}}) && arraysDifferent($p->{'current'}, $p->{'last'})){
