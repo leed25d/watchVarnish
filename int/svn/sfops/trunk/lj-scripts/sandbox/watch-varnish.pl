@@ -83,6 +83,7 @@ my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 my %clOptions;
 GetOptions(
     'help|h'               => \($clOptions{'help'}= 0),
+    'clear!'               => \($clOptions{'clear'}= 1),
     'fields|f=s@'          => $clOptions{'fields'}= [],
     'servers|s=s@'         => $clOptions{'servers'}= [],
     'iterations|i=s'       => \($clOptions{'iterations'}= '300s'),
