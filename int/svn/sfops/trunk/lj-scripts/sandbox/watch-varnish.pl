@@ -28,6 +28,7 @@ Usage:
     $0 [options]
     Options:
         --help|h          Print this help and exit
+        --[no]clear       Clear the screen (or not) on each loop iteration
         --fields|f        Gather stats for the specified fields only
         --servers|s       Gather stats for the specified servers only
         --iterations|i    Iterations
@@ -35,6 +36,9 @@ Usage:
         --List-Fields|l   Print the list of legal field names on STDOUT
 
 NOTES:
+
+    --clear  the screen is cleared by default on each loop iteraion.
+             turn this behavior off with the --noclear option.
 
     --fields (default: client_conn,client_req,cache_hit) is a comma
              separated list of field names to display, the option may
@@ -529,7 +533,8 @@ while (loopControl(\%runTime)) {
     getServerStats($loopTime);
 
     ##  dump server stats on STDOUT
-    system('clear');
+    system('clear') if $clOptions{'clear'};
+
     print "\n\n${\(fmtHeaderLine())}\n";
     for my $server (@varnishServers) {
         printf("%-15.15s %s\n", $server, serverStats($server));
