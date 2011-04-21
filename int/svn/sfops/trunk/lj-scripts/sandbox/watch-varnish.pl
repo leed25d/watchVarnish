@@ -363,7 +363,7 @@ sub getServerStats {
         $p->{'stale'}= 1;
     }
     my $count= $q->pending();
-    print "q count= $count\n";
+    ##print "q count= $count\n";
     return unless $count;
 
     my @ary;
@@ -545,4 +545,7 @@ while (loopControl(\%runTime)) {
     sleep 1;
 }
 print "Quitting.  ${\($runTime{'reason'})}\n";
+
+##for my $t (@threadAry) {$t->join};
+
 exit;
