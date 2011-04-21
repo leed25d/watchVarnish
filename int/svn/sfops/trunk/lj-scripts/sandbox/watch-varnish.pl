@@ -14,8 +14,8 @@ use threads::shared;
 use Thread::Queue;
 $|=1;
 
-my $connectTimeoutSecs= 5;
-my $readTimeoutSecs=2;
+my $connectTimeoutSecs= 120;
+my $readTimeoutSecs=10;
 my $slewTimeoutSecs=2;
 
 my $usage = <<USAGE;
