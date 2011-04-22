@@ -48,17 +48,17 @@ NOTES:
     --servers is a comma separated list of server names to contact,
              the option may be specified multiple times.
 
-    --iterations <forever|[nnnn[sS]] (string)> specify how long to run
-             the program.  If this is a number, run that number of
-             iterations of the main loop. If it is a number followed
-             by [sS] run unitl that many seconds have elapsed.  The
-             (case-insesnitive) string 'forever' without the quotes
-             will put the program into an infinie loop.  In this case,
-             terminate with C-c.  Default is 300s.
+    --iterations <forever|[nnnn[sS]] (string)> Default 300s. Specify
+             how long to run the program.  If this is a number, run
+             that number of iterations of the main loop. If it is a
+             number followed by [sS] run until that many seconds have
+             elapsed.  The (case-insesnitive) string 'forever' without
+             the quotes will put the program into an infinie loop.  In
+             this case, terminate with C-c.
 
     --pool-file pool file containing server anmes one pr line.
              Default pool file is \$LJHOME/etc/pool_varnish.txt The
-             pool file will not be reaqd if --servers option was used.
+             pool file will not be read if --servers option was used.
 USAGE
 
 ##  get a list of valid field names and descriptions from some random
