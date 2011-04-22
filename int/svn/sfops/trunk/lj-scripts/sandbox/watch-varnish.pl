@@ -350,20 +350,6 @@ sub  countSeconds{
 
 sub getServerStats {
     my ($time)= @_;
-
-##    for my $server (@varnishServers) {
-##        my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
-##        $p->{'sampleTime'}= $time;
-##
-##        my $ap= getCurrentStats($server);
-##        if (arraysDifferent($p->{'current'}, $ap)) {
-##            if (scalar(@{$p->{'current'}}) && arraysDifferent($p->{'current'}, $p->{'last'})){
-##                $p->{'last'}= $p->{'current'};
-##            }
-##            $p->{'current'}= $ap;
-##        }
-##        $p->{'last'}= $p->{'current'} unless  scalar(@{$p->{'last'}});
-##    }
     for my $server (@varnishServers) {
         my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
         $p->{'stale'}= 1;
