@@ -351,15 +351,11 @@ sub  countSeconds{
 sub getServerStats {
     my ($time)= @_;
     for my $server (@varnishServers) {
-        my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
-        $p->{'stale'}= 1;
+        $varnishServerStats{$server}->{'stale'}= 1
     }
-    my $count= $q->pending();
-    ##print "q count= $count\n";
-    return unless $count;
+    return unless (my $count= $q->pending());
 
-    my @ary;
-    push(@ary, $q->dequeue_nb()) while ($count--);
+    my @ary= map {$q->dequeue_nb()} (1..$count);
 
     for my $hp (@ary) {
         my $server= $hp->{'server'};
