@@ -252,24 +252,28 @@ sub getCurrentStats {
     return unless my $telnet= $sap->{'tn'};
 
     my $errmsg= 'OK';
-
     my @lines=();
-    $telnet->print('stats');
-    while (1) {
-        my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
-        if (!$line) {
-            $errmsg= $telnet->errmsg();
-            @lines=();
-            last;
-        }
-        chomp $line;
-        last unless length($line);
-        push @lines, $line;
-    }
 
+    $telnet->errmode("return");
+    $errmsg= $telnet->errmsg() unless ($telnet->print('stats'));
+    if ($errmsg eq 'OK') {
+        while (1) {
+            my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
+            if (!$line) {
+                $errmsg= $telnet->errmsg();
+                @lines=();
+                last;
+            }
+            chomp $line;
+            last unless length($line);
+            push @lines, $line;
+        }
+    } else {
+        $sap->{'tn'}= undef;
+    }
     $sap->{'getCurrentStatsMessage'}= $errmsg;
     $sap->{'getCurrentStatsRetcode'}= shift @lines if @lines;
-    for my $line (@lines) {$sap->{'lines'} .= "$line\n"};
+    $sap->{'lines'}= join("\n", @lines);
     return;
 }
 
@@ -278,21 +282,23 @@ sub  doVarnishServer {
     my ($sName)= @_;
 
     ##  server attributes pointer.
-    my $sap= {}; ##share($sap);
-
-    do {$sap->{'tn'}= initializeTelnet($sName); sleep 2 unless $sap->{'tn'}} until $sap->{'tn'};
-    ##$sap->{'lastUptime'}= undef;
+    my $sap= {};
     $sap->{'server'}= $sName;
+    $sap->{'tn'}= undef;
 
     while (loopControl(\%runTime)) {
+        ##  initialize a telnet object maybe
+        if (!defined($sap->{'tn'})) {
+            do {$sap->{'tn'}= initializeTelnet($sName); sleep 2 unless $sap->{'tn'}} until $sap->{'tn'};
+        }
+
+        getCurrentStats($sap);
+        next unless (defined($sap->{'tn'})); ##  in case the telnet connection died
+
         my $hp= {}; share($hp);
         $hp->{'server'}= $sap->{'server'};
 
-        getCurrentStats($sap);
-        ##print "dumpsite: sap hash looks like this: @{[Dumper($sap)]}\n";
-
-        for my $a ('getCurrentStatsMessage', 'getCurrentStatsRetcode', 'lines') {$hp->{$a}= $sap->{$a}};
-
+       for my $a ('getCurrentStatsMessage', 'getCurrentStatsRetcode', 'lines') {$hp->{$a}= $sap->{$a}};
         $q->enqueue($hp);
 
         sleep 1;
