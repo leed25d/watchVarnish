@@ -413,45 +413,41 @@ sub  hitFields{
     ##      '          20  Client requests received',
     ##      '          18  Cache hits',
     ##      '           2  Cache misses',
-    my %hitFields=('client_req' => 1, 'cache_hit' => 1);
-    $hitFields{'client_req'}= 1;
-    my @ary= grep {/$symbHash{'client_req'}/} (@$ap);
-    if (scalar(@ary)) {
-         ($hitFields{'client_req'}= (grep {/$symbHash{'client_req'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
-     }
-
-    @ary= grep {/$symbHash{'cache_hit'}/} (@$ap);
-    if (scalar(@ary)) {
-        ($hitFields{'cache_hit'}= (grep {/$symbHash{'cache_hit'}/} (@$ap))[0]) =~ s/^\s+(\S+).*$/$1/;
+    my %hitFields= map {getSymbolic($_, $ap)} ('cache_miss', 'cache_hit');
+    sub getSymbolic {
+        my @ary= grep {/$symbHash{$_[0]}/} (@{$_[1]});
+        return ($_, 1) unless scalar(@ary);
+        $ary[0] =~ s/^\s+(\S+).*$/$1/;
+        return ($_, $ary[0]);
     }
-
     return(\%hitFields);
-}
-
-sub  deltaSymb{
-    my ($cp, $lp, $symb)= @_;
-    die "deltaSymb() undefined symbol error" unless (exists($cp->{$symb}) && exists($lp->{$symb}));
-
-    my $delta= $cp->{$symb} - $lp->{$symb};
-    if ($delta < 0) {
-        print "cp Hash==>>@{[Dumper($cp)]}\n";
-        print "lp Hash==>>@{[Dumper($lp)]}\n";
-        print "symb= $symb, delta= $delta\n";
-        die "deltaSymb() delta calculation error";
-    }
-    return 1 if ($delta == 0);
-    return $delta;
 }
 
 sub calcHitRatio {
     my ($s)= @_;
     my $retVal='';
+    my $p= $varnishServerStats{$s}; ##  for convenience.  a pointer.
+    my $cur= hitFields($p->{'current'});
+    my $calc= $cur;
+    my $ind= '*';
 
-    my $cur= hitFields($varnishServerStats{$s}->{'current'});
-    my $lst= hitFields($varnishServerStats{$s}->{'last'});
+    if (scalar(@{$p->{'last'}})) {
+        my $lst= hitFields($p->{'last'});
+        my $delta= { map {($_, ($cur->{$_} - $lst->{$_}))} ('cache_hit', 'cache_miss') };
+        if ($delta->{'cache_hit'} > 1 && $delta->{'cache_miss'} > 1) {
+            my $calc= $delta;
+            $ind= ' ';
+        }
+    }
 
-    my $perCent= (deltaSymb($cur, $lst, 'cache_hit') / deltaSymb($cur, $lst, 'client_req')) * 100;
-    $retVal= sprintf("%20.20s", sprintf(" %6.2f", $perCent));
+##    print "calcHitRatio() ${\('-' x 80)}\n";
+##    print "calcHitRatio() server: ${\($p->{'name'})} keys: ${\(join(' ', keys(%{$p})))}\n";
+##    print "calcHitRatio() cur Hash==>>@{[Dumper($cur)]}\n";
+##    print "calcHitRatio() lst Hash==>>@{[Dumper($lst)]}\n";
+##    print "calcHitRatio() delta Hash==>>@{[Dumper($delta)]}\n";
+
+    my $perCent= ($calc->{'cache_hit'} / ($calc->{'cache_hit'} + $calc->{'cache_miss'})) * 100;
+    $retVal= sprintf("%20.20s", sprintf("%6.2f %s", $perCent, $ind || ' '));
 
     return($retVal);
 }
@@ -461,9 +457,10 @@ sub serverStats {
     my $deltaSeconds=1;
     my $ret= '';
 
-    return "No Data this cycle" unless scalar(@{$varnishServerStats{$s}->{'current'}});
     my $p= $varnishServerStats{$s};  ##  for convenience.  a pointer.
-    
+    return "No Data this cycle" unless scalar(@{$p->{'current'}});
+
+
     my %curDescLines= map {descValue($_)} (@{$p->{'current'}});
     my %lastDescLines= map {descValue($_)} (@{$p->{'last'}});
     sub descValue {
@@ -523,17 +520,15 @@ while (loopControl(\%runTime)) {
     getServerStats($loopTime);
 
     ##  dump server stats on STDOUT
-    system('clear') if $clOptions{'clear'};
-
-    print "\n\n${\(fmtHeaderLine())}\n";
+    my $outStr= "\n\n${\(fmtHeaderLine())}\n";
     for my $server (@varnishServers) {
-        printf("%-15.15s %s\n", $server, serverStats($server));
+        $outStr .= sprintf("%-15.15s %s\n", $server, serverStats($server));
     }
-
+    system('clear') if $clOptions{'clear'};
+    print $outStr;
     sleep 1;
 }
 print "Quitting.  ${\($runTime{'reason'})}\n";
-
 ##for my $t (@threadAry) {$t->join};
 
 exit;
