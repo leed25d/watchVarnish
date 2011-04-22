@@ -115,8 +115,6 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
     $runTime{'limit'}= $spec ? 'seconds' : 'iterations';
     $runTime{'count'}= $digits;
 }
-##  print "Run Time hash==>>@{[Dumper(\%runTime)]}\n";
-##  exit;
 
 ##  -f option? list the field symbols which need to be displayed
 my @defaultFieldSymbols= ('client_conn,client_req,cache_hit',);
@@ -130,9 +128,6 @@ for my $optionString (@{$clOptions{'fields'}}) {
     }
 }
 $optFields{'uptime'}= 1;  ##  always include uptime
-
-##print "Fields Hash==>>@{[Dumper(\%optFields)]}\n";
-##exit;
 die "fields array is empty.  nothing to do\n" if ((keys(%optFields)) <= 1);
 
 #  establish an ordering relation.  this is the order that fields
@@ -171,8 +166,6 @@ unless (keys(%varnishServers)){
 }
 die "servers array is empty.  nothing to do\n" unless keys(%varnishServers);
 my @varnishServers= sort keys(%varnishServers);
-##print "Servers array ==>>@{[Dumper(\@varnishServers)]}\n";
-##exit;
 
 ########################################################################
 ##                      E N D    O P T I O N S                        ##
@@ -197,8 +190,6 @@ sub of {
 }
 
 $descPattern= "($descPattern)\$";
-##  print "\$descPattern= $descPattern\n";
-##  print "\@descAry= @{[Dumper(\@descAry)]}\n";
 
 $SIG{INT} = \&programOff;
 sub programOff {
@@ -298,7 +289,7 @@ sub  doVarnishServer {
         my $hp= {}; share($hp);
         $hp->{'server'}= $sap->{'server'};
 
-       for my $a ('getCurrentStatsMessage', 'getCurrentStatsRetcode', 'lines') {$hp->{$a}= $sap->{$a}};
+        for my $a ('getCurrentStatsMessage', 'getCurrentStatsRetcode', 'lines') {$hp->{$a}= $sap->{$a}};
         $q->enqueue($hp);
 
         sleep 1;
@@ -332,7 +323,6 @@ sub  countIterations{
         $rh->{'reason'}= "Max (${\($rh->{'count'})}) iterations reached";
         $rh->{'stop'}= 1;
     }
-    ##print "countIterations() runTime hash==>>   @{[Dumper(\%runTime)]}\n";
     return(!$rh->{'stop'});
 }
 
@@ -439,13 +429,6 @@ sub calcHitRatio {
             $ind= ' ';
         }
     }
-
-##    print "calcHitRatio() ${\('-' x 80)}\n";
-##    print "calcHitRatio() server: ${\($p->{'name'})} keys: ${\(join(' ', keys(%{$p})))}\n";
-##    print "calcHitRatio() cur Hash==>>@{[Dumper($cur)]}\n";
-##    print "calcHitRatio() lst Hash==>>@{[Dumper($lst)]}\n";
-##    print "calcHitRatio() delta Hash==>>@{[Dumper($delta)]}\n";
-
     my $perCent= ($calc->{'cache_hit'} / ($calc->{'cache_hit'} + $calc->{'cache_miss'})) * 100;
     $retVal= sprintf("%20.20s", sprintf("%6.2f %s", $perCent, $ind || ' '));
 
