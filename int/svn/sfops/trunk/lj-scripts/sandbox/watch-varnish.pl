@@ -16,7 +16,7 @@ $|=1;
 
 my $connectTimeoutSecs= 120;
 my $readTimeoutSecs=10;
-my $slewTimeoutSecs=2;
+my $slewTimeoutSecs=5;
 
 my $usage = <<USAGE;
 
