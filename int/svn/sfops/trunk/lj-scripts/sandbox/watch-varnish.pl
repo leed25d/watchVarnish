@@ -333,6 +333,10 @@ sub  countSeconds{
     return (!$rh->{'stop'});
 }
 
+##  server stats are queued by threads and there is one thread for
+##  each varnish server.  This routine pulls all available entries off
+##  of the queue and updates the %varnishServerStats hash
+##  appripriately.
 sub getServerStats {
     my ($time)= @_;
     for my $server (@varnishServers) {
@@ -349,6 +353,9 @@ sub getServerStats {
         my $ap= [ split("\n", $hp->{'lines'}) ];
         next unless scalar(@$ap);
 
+        ##  the %varnishServerStats has two arrays of statistics for
+        ##  each server: the most recently acquired array and the
+        ##  previous one
         if (arraysDifferent($p->{'current'}, $ap)) {
             if (scalar(@{$p->{'current'}}) && arraysDifferent($p->{'current'}, $p->{'last'})){
                 $p->{'last'}= $p->{'current'};
@@ -447,6 +454,9 @@ sub serverStats {
         return () unless (scalar(@ary) == 2);
         return($ary[1], $sLine);
     }
+
+    ##  determine the numer of seconds which have elapsed between the
+    ##  most recent two measurements
     my @curUptime= map {/\s*(\S*)\s*(.*)$/} grep {/client uptime/i} (@{$p->{'current'}});
     my @lstUptime= map {/\s*(\S*)\s*(.*)$/} grep {/client uptime/i} (@{$p->{'last'}});
     $deltaSeconds= ($curUptime[0]>$lstUptime[0]) ? $curUptime[0]-$lstUptime[0]: 1;
