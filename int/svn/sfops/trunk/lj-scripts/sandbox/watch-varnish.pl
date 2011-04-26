@@ -341,7 +341,7 @@ sub  countSeconds{
 sub getServerStats {
     my ($time)= @_;
     for my $server (@varnishServers) {
-        $varnishServerStats{$server}->{'stale'}= 1
+        $varnishServerStats{$server}->{'stale'}++
     }
     return unless (my $count= $q->pending());
 
@@ -386,7 +386,7 @@ sub fmtHeaderLine {
     ##  only build it the first time.
     return $ret if $ret;
 
-    $ret .= sprintf("%-15.15s ", 'server');
+    $ret .= sprintf("%-12.12s%4.4s", 'server', 'sctr');
     for my $field (sort {$optFields{$a} <=> $optFields{$b}} keys(%optFields)) {
         next if ($field eq 'uptime');
         $ret .= sprintf("%20.20s ", $field)
@@ -441,7 +441,7 @@ sub serverStats {
     my $ret= '';
 
     my $p= $varnishServerStats{$s};  ##  for convenience.  a pointer.
-    return "No Data this cycle" unless scalar(@{$p->{'current'}});
+    return "No Data from Server" unless scalar(@{$p->{'current'}});
 
 
     my %curDescLines= map {descValue($_)} (@{$p->{'current'}});
@@ -491,6 +491,7 @@ sub kickOff {
 
     $varnishServerStats{$s}->{'current'}= [];
     $varnishServerStats{$s}->{'last'}= [];
+    $varnishServerStats{$s}->{'stale'}= 0;
     $varnishServerStats{$s}->{'name'}= $s;
 
     my $thr= threads->create(sub {doVarnishServer($_[0])}, ($s));
@@ -505,7 +506,11 @@ while (loopControl(\%runTime)) {
     ##  dump server stats on STDOUT
     my $outStr= "\n\n${\(fmtHeaderLine())}\n";
     for my $server (@varnishServers) {
-        $outStr .= sprintf("%-15.15s %s\n", $server, serverStats($server));
+        my $p= $varnishServerStats{$server}; ##  for convenience.  a pointer.
+        $outStr .= sprintf("%-12.12s %2.2s %s\n", 
+                           $server, 
+                           $p->{'stale'} ? sprintf("%2d", $p->{'stale'}) : ' ',
+                           serverStats($server));
     }
     system('clear') if $clOptions{'clear'};
     print $outStr;
