@@ -29,6 +29,7 @@ Usage:
     Options:
         --help|h          Print this help and exit
         --[no]clear       Clear the screen (or not) on each loop iteration
+        --[no]ratio       Display a hit ratio (or not)
         --fields|f        Gather stats for the specified fields only
         --servers|s       Gather stats for the specified servers only
         --iterations|i    Iterations
@@ -84,6 +85,7 @@ my %clOptions;
 GetOptions(
     'help|h'               => \($clOptions{'help'}= 0),
     'clear!'               => \($clOptions{'clear'}= 1),
+    'ratio!'               => \($clOptions{'ratio'}= 1),
     'fields|f=s@'          => $clOptions{'fields'}= [],
     'servers|s=s@'         => $clOptions{'servers'}= [],
     'iterations|i=s'       => \($clOptions{'iterations'}= '300s'),
@@ -127,7 +129,7 @@ for my $optionString (@{$clOptions{'fields'}}) {
         $optFields{$optionSymbol}= 1;
     }
 }
-die "fields array is empty.  nothing to do\n" if ((keys(%optFields)) <= 1);
+die "fields array is empty.  nothing to do\n" unless scalar(keys(%optFields));
 
 #  establish an ordering relation.  this is the order that fields
 ##  will appear on the output line
@@ -389,7 +391,7 @@ sub fmtHeaderLine {
     for my $field (sort {$optFields{$a} <=> $optFields{$b}} keys(%optFields)) {
         $ret .= sprintf("%20.20s ", $field)
     }
-    $ret .= sprintf("%20.20s", 'hit_ratio');
+    $ret .= sprintf("%20.20s", 'hit_ratio') if $clOptions{'ratio'};
 
     return($ret);
 }
@@ -475,7 +477,7 @@ sub serverStats {
         }
         $ret .= sprintf("%20.20s ", $str);
     }
-    $ret .= calcHitRatio($s);
+    $ret .= calcHitRatio($s) if $clOptions{'ratio'};
     return $ret;
 }
 
