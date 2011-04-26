@@ -127,7 +127,6 @@ for my $optionString (@{$clOptions{'fields'}}) {
         $optFields{$optionSymbol}= 1;
     }
 }
-$optFields{'uptime'}= 1;  ##  always include uptime
 die "fields array is empty.  nothing to do\n" if ((keys(%optFields)) <= 1);
 
 #  establish an ordering relation.  this is the order that fields
@@ -386,9 +385,8 @@ sub fmtHeaderLine {
     ##  only build it the first time.
     return $ret if $ret;
 
-    $ret .= sprintf("%-12.12s%4.4s", 'server', 'sctr');
+    $ret .= sprintf("%-12.12s%5.5s", 'server', 'sctr');
     for my $field (sort {$optFields{$a} <=> $optFields{$b}} keys(%optFields)) {
-        next if ($field eq 'uptime');
         $ret .= sprintf("%20.20s ", $field)
     }
     $ret .= sprintf("%20.20s", 'hit_ratio');
@@ -427,6 +425,7 @@ sub calcHitRatio {
         if ($delta->{'cache_hit'} > 1 && $delta->{'cache_miss'} > 1) {
             my $calc= $delta;
             $ind= ' ';
+
         }
     }
     my $perCent= ($calc->{'cache_hit'} / ($calc->{'cache_hit'} + $calc->{'cache_miss'})) * 100;
@@ -472,7 +471,6 @@ sub serverStats {
         } else {
             my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
             my @lst= $last[$i] =~ /\s*(\S*)\s*(.*)$/;
-            next if $cur[1] eq 'Client uptime';
             $str= sprintf("%7d %+7d", $cur[0], (($cur[0] - $lst[0]) / $deltaSeconds));
         }
         $ret .= sprintf("%20.20s ", $str);
@@ -507,7 +505,7 @@ while (loopControl(\%runTime)) {
     my $outStr= "\n\n${\(fmtHeaderLine())}\n";
     for my $server (@varnishServers) {
         my $p= $varnishServerStats{$server}; ##  for convenience.  a pointer.
-        $outStr .= sprintf("%-12.12s %2.2s %s\n", 
+        $outStr .= sprintf("%-12.12s %3.3s %s\n", 
                            $server, 
                            $p->{'stale'} ? sprintf("%2d", $p->{'stale'}) : ' ',
                            serverStats($server));
