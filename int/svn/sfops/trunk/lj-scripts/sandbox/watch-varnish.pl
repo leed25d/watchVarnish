@@ -28,8 +28,8 @@ Usage:
     $0 [options]
     Options:
         --help|h          Print this help and exit
-        --[no]clear       Clear the screen (or not) on each loop iteration
-        --[no]ratio       Display a hit ratio (or not)
+        --[no]clear       Clear the screen [or not] on each loop iteration
+        --[no]ratio       Display a hit ratio [or not]
         --fields|f        Gather stats for the specified fields only
         --servers|s       Gather stats for the specified servers only
         --iterations|i    Iterations
@@ -172,22 +172,19 @@ my @varnishServers= sort keys(%varnishServers);
 ##                      E N D    O P T I O N S                        ##
 ########################################################################
 ##
-##  construct a matching pattern for field descriptions.
-my $descPattern='';
+##  construct an array of displayable fields
 my @descAry= ();
 for my $symbol (keys(%optFields)) {
     next unless exists($symbHash{$symbol});
-    $descPattern .= (length($descPattern) ? '|' : '') . $symbHash{$symbol};
     push(@descAry, $symbHash{$symbol});
 }
 
-##the descriptions array needs to be sorted into display order
+##  the descriptions array needs to be sorted into display order
 @descAry= sort {of($a) <=> of($b)} (@descAry);
 sub of {
     my ($p)= @_;
     return($optFields{$descHash{$p}});
 }
-$descPattern= "($descPattern)\$";
 
 $SIG{INT} = \&programOff;
 sub programOff {
