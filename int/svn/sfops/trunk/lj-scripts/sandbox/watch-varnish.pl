@@ -172,8 +172,6 @@ my @varnishServers= sort keys(%varnishServers);
 ##                      E N D    O P T I O N S                        ##
 ########################################################################
 ##
-##  if no servers were specified on the command line, then read the
-##  server pool file
 ##  construct a matching pattern for field descriptions.
 my $descPattern='';
 my @descAry= ();
@@ -189,7 +187,6 @@ sub of {
     my ($p)= @_;
     return($optFields{$descHash{$p}});
 }
-
 $descPattern= "($descPattern)\$";
 
 $SIG{INT} = \&programOff;
@@ -444,7 +441,6 @@ sub serverStats {
     my $p= $varnishServerStats{$s};  ##  for convenience.  a pointer.
     return "No Data from Server" unless scalar(@{$p->{'current'}});
 
-
     my %curDescLines= map {descValue($_)} (@{$p->{'current'}});
     my %lastDescLines= map {descValue($_)} (@{$p->{'last'}});
     sub descValue {
@@ -454,20 +450,17 @@ sub serverStats {
         return () unless (scalar(@ary) == 2);
         return($ary[1], $sLine);
     }
-    my @current= map {(exists($curDescLines{$_})) ? $curDescLines{$_} : '***'} @descAry;
-    my @last= map {(exists($lastDescLines{$_})) ? $lastDescLines{$_} : '***'} @descAry;
+    my @curUptime= map {/\s*(\S*)\s*(.*)$/} grep {/client uptime/i} (@{$p->{'current'}});
+    my @lstUptime= map {/\s*(\S*)\s*(.*)$/} grep {/client uptime/i} (@{$p->{'last'}});
+    $deltaSeconds= ($curUptime[0]>$lstUptime[0]) ? $curUptime[0]-$lstUptime[0]: 1;
 
-    for (my $i=0; $i < scalar(@current); $i++) {
-        my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
-        my @lst= $last[$i] =~ /\s*(\S*)\s*(.*)$/;
-        next unless $cur[1] eq 'Client uptime';
-        last unless $cur[0] > $lst[0];
-        $deltaSeconds= $cur[0] - $lst[0];
-    }
+    my $fakeEntry='XXX XXX';
+    my @current= map {(exists($curDescLines{$_})) ? $curDescLines{$_} : $fakeEntry} @descAry;
+    my @last= map {(exists($lastDescLines{$_})) ? $lastDescLines{$_} : $fakeEntry} @descAry;
 
     for (my $i=0; $i < scalar(@current); $i++) {
         my $str='';
-        if ($current[$i] eq '***' || $last[$i] eq '***') {
+        if ($current[$i] eq $fakeEntry|| $last[$i] eq $fakeEntry) {
             $str= '***';
 
         } else {
@@ -477,6 +470,7 @@ sub serverStats {
         }
         $ret .= sprintf("%20.20s ", $str);
     }
+
     $ret .= calcHitRatio($s) if $clOptions{'ratio'};
     return $ret;
 }
