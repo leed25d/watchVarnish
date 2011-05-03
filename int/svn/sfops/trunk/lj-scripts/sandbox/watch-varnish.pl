@@ -383,18 +383,18 @@ sub arraysDifferent {
     return 0;
 }
 
-my $ret= '';
+my $headerLine= '';
 sub fmtHeaderLine {
     ##  only build it the first time.
-    return $ret if $ret;
+    return $headerLine if $headerLine;
 
-    $ret .= sprintf("%-12.12s%5.5s", 'server', 'sctr');
+    $headerLine .= sprintf("%-12.12s%5.5s", 'server', 'sctr');
     for my $field (sort {$optFields{$a} <=> $optFields{$b}} keys(%optFields)) {
-        $ret .= sprintf("%20.20s ", $field)
+        $headerLine .= sprintf("%20.20s ", $field)
     }
-    $ret .= sprintf("%20.20s", 'hit_ratio') if $clOptions{'ratio'};
+    $headerLine .= sprintf("%20.20s", 'hit_ratio') if $clOptions{'ratio'};
 
-    return($ret);
+    return($headerLine);
 }
 
 sub  hitFields{
