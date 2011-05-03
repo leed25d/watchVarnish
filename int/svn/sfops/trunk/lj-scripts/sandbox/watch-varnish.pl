@@ -17,6 +17,7 @@ $|=1;
 my $connectTimeoutSecs= 120;
 my $readTimeoutSecs=10;
 my $slewTimeoutSecs=5;
+my %summaryStats;
 
 my $usage = <<USAGE;
 
@@ -467,13 +468,19 @@ sub serverStats {
 
     for (my $i=0; $i < scalar(@current); $i++) {
         my $str='';
+        my $descr= $descAry[$i];
+
         if ($current[$i] eq $fakeEntry|| $last[$i] eq $fakeEntry) {
             $str= '***';
 
         } else {
             my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
             my @lst= $last[$i] =~ /\s*(\S*)\s*(.*)$/;
-            $str= sprintf("%7d %+7d", $cur[0], (($cur[0] - $lst[0]) / $deltaSeconds));
+            my $t= (($cur[0] - $lst[0]) / $deltaSeconds);
+
+            $summaryStats{$descr}->{'cur'} += $cur[0];
+            $summaryStats{$descr}->{'delta'}  += sprintf('%d', $t);
+            $str= sprintf("%10d %+6d", $cur[0], $t);
         }
         $ret .= sprintf("%20.20s ", $str);
     }
@@ -482,10 +489,30 @@ sub serverStats {
     return $ret;
 }
 
+sub initSummaryStats {
+    for (@descAry) {initSummaryStatsAttr($_)};
+    sub initSummaryStatsAttr {
+        $summaryStats{$_[0]}= {'cur', 0, 'delta', 0};
+    }
+}
+
+sub serverStatsSummary {
+    my $ret= sprintf('%-17.17s',"Summary Stats") . "\n";
+
+    for (@descAry) {$ret .= appendSummaryValueField($_)};
+    sub appendSummaryValueField {
+        return(sprintf("%20.20s: %15d %+8d\n", 
+                       $descHash{$_[0]},
+                       $summaryStats{$_[0]}->{'cur'}, 
+                       $summaryStats{$_[0]}->{'delta'}));
+    }
+
+    return "\n$ret\n";
+}
 #########################################################################
 ##                             M A I N                                 ##
 #########################################################################
-##  create threads
+##  (main) create threads
 for my $server (@varnishServers) {kickOff($server)};
 sub kickOff {
     my ($s)= @_;
@@ -506,13 +533,17 @@ while (loopControl(\%runTime)) {
 
     ##  dump server stats on STDOUT
     my $outStr= "\n\n${\(fmtHeaderLine())}\n";
+    initSummaryStats();
+
     for my $server (@varnishServers) {
         my $p= $varnishServerStats{$server}; ##  for convenience.  a pointer.
-        $outStr .= sprintf("%-12.12s %3.3s %s\n", 
-                           $server, 
+        $outStr .= sprintf("%-12.12s %3.3s %s\n",
+                           $server,
                            $p->{'stale'} ? sprintf("%2d", $p->{'stale'}) : ' ',
                            serverStats($server));
     }
+
+    $outStr .= serverStatsSummary();
     system('clear') if $clOptions{'clear'};
     print $outStr;
     sleep 1;
