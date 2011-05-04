@@ -337,7 +337,7 @@ sub  countSeconds{
 ##  server stats are queued by threads and there is one thread for
 ##  each varnish server.  This routine pulls all available entries off
 ##  of the queue and updates the %varnishServerStats hash
-##  appripriately.
+##  appropriately.
 sub getServerStats {
     my ($time)= @_;
     for my $server (@varnishServers) {
@@ -432,9 +432,11 @@ sub calcHitRatio {
 
         }
     }
+
     my $perCent= ($calc->{'cache_hit'} / ($calc->{'cache_hit'} + $calc->{'cache_miss'})) * 100;
     $retVal= sprintf("%20.20s", sprintf("%6.2f %s", $perCent, $ind || ' '));
-
+    $summaryStats{'ratio'}->{'cache_hit'} += $calc->{'cache_hit'};
+    $summaryStats{'ratio'}->{'cache_miss'} += $calc->{'cache_miss'};
     return($retVal);
 }
 
@@ -494,19 +496,28 @@ sub initSummaryStats {
     sub initSummaryStatsAttr {
         $summaryStats{$_[0]}= {'cur', 0, 'delta', 0};
     }
+    $summaryStats{'ratio'}= {'cache_hit', 0, 'cache_miss', 0};
 }
 
 sub serverStatsSummary {
     my $ret= sprintf('%-17.17s',"Summary Stats") . "\n";
 
-    for (@descAry) {$ret .= appendSummaryValueField($_)};
-    sub appendSummaryValueField {
-        return(sprintf("%20.20s: %15d %+8d\n", 
-                       $descHash{$_[0]},
-                       $summaryStats{$_[0]}->{'cur'}, 
-                       $summaryStats{$_[0]}->{'delta'}));
+    ##  aggregate hit ratio
+    my $p= $summaryStats{'ratio'};  ##  for convenience.   a pointer.
+    my $denom= $p->{'cache_hit'} + $p->{'cache_miss'};
+    if ($denom > 0) {
+        my $perCent= ($p->{'cache_hit'} / ($p->{'cache_hit'} + $p->{'cache_miss'})) * 100;
+        $ret .= sprintf("%20.20s: %15.2f\n", 'hit_ratio', $perCent);
     }
 
+    ##  fields
+    for (@descAry) {$ret .= appendSummaryValueField($_)};
+    sub appendSummaryValueField {
+        return(sprintf("%20.20s: %15d %+8d\n",
+                       $descHash{$_[0]},
+                       $summaryStats{$_[0]}->{'cur'},
+                       $summaryStats{$_[0]}->{'delta'}));
+    }
     return "\n$ret\n";
 }
 #########################################################################
