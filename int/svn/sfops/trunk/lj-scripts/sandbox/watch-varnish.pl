@@ -389,7 +389,7 @@ sub fmtHeaderLine {
     ##  only build it the first time.
     return $headerLine if $headerLine;
 
-    $headerLine .= sprintf("%-12.12s%5.5s", 'server', 'sctr');
+    $headerLine .= sprintf("%-12.12s", 'server');
     for my $field (sort {$optFields{$a} <=> $optFields{$b}} keys(%optFields)) {
         $headerLine .= sprintf("%20.20s ", $field)
     }
@@ -548,9 +548,8 @@ while (loopControl(\%runTime)) {
 
     for my $server (@varnishServers) {
         my $p= $varnishServerStats{$server}; ##  for convenience.  a pointer.
-        $outStr .= sprintf("%-12.12s %3.3s %s\n",
+        $outStr .= sprintf("%-12.12s%s\n",
                            $server,
-                           $p->{'stale'} ? sprintf("%2d", $p->{'stale'}) : ' ',
                            serverStats($server));
     }
 
