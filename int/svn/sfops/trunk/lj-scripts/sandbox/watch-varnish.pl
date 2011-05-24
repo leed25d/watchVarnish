@@ -78,6 +78,13 @@ $allfieldsFH->close();
 my %symbHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
 my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 
+my $fieldSets={};
+$fieldSets->{'empty'}=   [qw //];
+$fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
+$fieldSets->{'purges'}=  [qw /n_purge n_purge_add n_purge_retire n_purge_obj_test
+                              n_purge_re_test n_purge_dups client_req/];
+
+
 ########################################################################
 ##                          O P T I O N S                             ##
 ########################################################################
@@ -86,6 +93,7 @@ GetOptions(
     'help|h'               => \($clOptions{'help'}= 0),
     'clear!'               => \($clOptions{'clear'}= 1),
     'ratio!'               => \($clOptions{'ratio'}= 1),
+    'field-set|=s'         => \($clOptions{'field_set'}= 'default'),
     'fields|f=s@'          => $clOptions{'fields'}= [],
     'servers|s=s@'         => $clOptions{'servers'}= [],
     'iterations|i=s'       => \($clOptions{'iterations'}= '300s'),
@@ -119,11 +127,10 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
 }
 
 ##  -f option? list the field symbols which need to be displayed
-my @defaultFieldSymbols= ('client_conn,client_req,cache_hit,cache_miss',);
-$clOptions{'fields'}= \@defaultFieldSymbols unless @{$clOptions{'fields'}};
 my %optFields=();
+my @fieldSet= @{$fieldSets->{$clOptions{'field_set'}}};
 
-for my $optionString (@{$clOptions{'fields'}}) {
+for my $optionString (@fieldSet, @{$clOptions{'fields'}}) {
     for my $optionSymbol (split(',', $optionString)) {
         next unless exists($symbHash{$optionSymbol});
         $optFields{$optionSymbol}= 1;
