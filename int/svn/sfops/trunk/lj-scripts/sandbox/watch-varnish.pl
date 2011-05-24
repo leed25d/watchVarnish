@@ -20,7 +20,6 @@ my $slewTimeoutSecs=5;
 my %summaryStats;
 
 my $usage = <<USAGE;
-
 $0 - Monitor Varnish Stats.
 This script is intended to be run by ops to monitor the status of
 the site's varnish servers.
@@ -256,6 +255,7 @@ sub getCurrentStats {
             push @lines, $line;
         }
     } else {
+        ##  lost our telnet connection
         $sap->{'tn'}= undef;
     }
     $sap->{'getCurrentStatsMessage'}= $errmsg;
