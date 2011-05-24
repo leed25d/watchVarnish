@@ -119,7 +119,7 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
 }
 
 ##  -f option? list the field symbols which need to be displayed
-my @defaultFieldSymbols= ('client_conn,client_req,cache_hit',);
+my @defaultFieldSymbols= ('client_conn,client_req,cache_hit,cache_miss',);
 $clOptions{'fields'}= \@defaultFieldSymbols unless @{$clOptions{'fields'}};
 my %optFields=();
 
