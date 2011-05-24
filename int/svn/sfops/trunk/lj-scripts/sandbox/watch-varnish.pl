@@ -30,6 +30,7 @@ Usage:
         --help|h          Print this help and exit
         --[no]clear       Clear the screen [or not] on each loop iteration
         --[no]ratio       Display a hit ratio [or not]
+        --fields-set      Specify a starting field set
         --fields|f        Gather stats for the specified fields only
         --servers|s       Gather stats for the specified servers only
         --iterations|i    Iterations
@@ -38,28 +39,34 @@ Usage:
 
 NOTES:
 
-    --clear  the screen is cleared by default on each loop iteraion.
-             turn this behavior off with the --noclear option.
+    --[no]clear  clear the screen is cleared by default [or not] on
+                 each loop iteraion.  default --clear
 
-    --fields (default: client_conn,client_req,cache_hit) is a comma
-             separated list of field names to display, the option may
-             be specified multiple times.  Unknown field names are
-             silently ignored.
+    --[no]ratio  display the hit ratio [or not] default --ratio.
 
-    --servers is a comma separated list of server names to contact,
-             the option may be specified multiple times.
+    --field-set  this is one of {empty, default, purges}
+
+    --fields     is a comma separated list of field names to display,
+                 these are added to the fields specified by the
+                 --field-set option
+
+    --servers    is a comma separated list of server names to contact,
+                 the option may be specified multiple times.
 
     --iterations <forever|[nnnn[sS]] (string)> Default 300s. Specify
-             how long to run the program.  If this is a number, run
-             that number of iterations of the main loop. If it is a
-             number followed by [sS] run until that many seconds have
-             elapsed.  The (case-insesnitive) string 'forever' without
-             the quotes will put the program into an infinie loop.  In
-             this case, terminate with C-c.
+                 how long to run the program.  If this is a number,
+                 run that number of iterations of the main loop. If it
+                 is a number followed by [sS] run until that many
+                 seconds have elapsed.  The (case-insesnitive) string
+                 'forever' without the quotes will put the program
+                 into an infinie loop.  In this case, terminate with
+                 C-c.
 
     --pool-file pool file containing server anmes one pr line.
-             Default pool file is \$LJHOME/etc/pool_varnish.txt The
-             pool file will not be read if --servers option was used.
+                 Default pool file is \$LJHOME/etc/pool_varnish.txt
+                 The pool file will not be read if --servers option
+                 was used.
+
 USAGE
 
 ##  get a list of valid field names and descriptions from some random
@@ -84,7 +91,6 @@ $fieldSets->{'empty'}=   [qw //];
 $fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
 $fieldSets->{'purges'}=  [qw /n_purge n_purge_add n_purge_retire n_purge_obj_test
                               n_purge_re_test n_purge_dups client_req/];
-
 
 ########################################################################
 ##                          O P T I O N S                             ##
