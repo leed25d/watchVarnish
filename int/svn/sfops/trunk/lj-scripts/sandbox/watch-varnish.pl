@@ -78,6 +78,7 @@ $allfieldsFH->close();
 my %symbHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
 my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 
+##  field sets can be specified by name by calling out the --fieldSet option
 my $fieldSets={};
 $fieldSets->{'empty'}=   [qw //];
 $fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
