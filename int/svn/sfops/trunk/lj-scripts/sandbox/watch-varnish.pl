@@ -427,7 +427,7 @@ sub calcHitRatio {
         my $lst= hitFields($p->{'last'});
         my $delta= { map {($_, ($cur->{$_} - $lst->{$_}))} ('cache_hit', 'cache_miss') };
         if ($delta->{'cache_hit'} > 1 && $delta->{'cache_miss'} > 1) {
-            my $calc= $delta;
+            $calc= $delta;
             $ind= ' ';
 
         }
