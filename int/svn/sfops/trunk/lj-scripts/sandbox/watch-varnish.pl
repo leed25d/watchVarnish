@@ -30,7 +30,7 @@ Usage:
         --help|h          Print this help and exit
         --[no]clear       Clear the screen [or not] on each loop iteration
         --[no]ratio       Display a hit ratio [or not]
-        --fields-set      Specify a starting field set
+        --field-set       Specify a starting field set
         --fields|f        Gather stats for the specified fields only
         --servers|s       Gather stats for the specified servers only
         --iterations|i    Iterations
