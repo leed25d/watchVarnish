@@ -19,6 +19,15 @@ my $readTimeoutSecs=10;
 my $slewTimeoutSecs=5;
 my %summaryStats;
 
+########################################################################
+##  TODO: this counter named $varnishServerStats{$s}->{'stale'} is    ##
+##  maintained as a count of the number of data collection cycles     ##
+##  (ie of the main loop) which have passed since new data was        ##
+##  actually acquired from $server.  This count is no longer used,    ##
+##  but was left in place just so that it could be used if it ever    ##
+##  became important again.  Consider taking it out.                  ##
+########################################################################
+
 my $usage = <<USAGE;
 $0 - Monitor Varnish Stats.
 This script is intended to be run by ops to monitor the status of
