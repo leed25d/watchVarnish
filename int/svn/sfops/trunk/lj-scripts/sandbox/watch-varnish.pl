@@ -85,16 +85,16 @@ $allfieldsFH->close();
 my %symbHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
 my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 
-##  field sets can be specified by name by calling out the --fieldSet option
+########################################################################
+##                          O P T I O N S                             ##
+########################################################################
+##  field sets can be specified by name by calling out the --fieldSet
+##  option
 my $fieldSets={};
 $fieldSets->{'empty'}=   [qw //];
 $fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
 $fieldSets->{'purges'}=  [qw /n_purge n_purge_add n_purge_retire n_purge_obj_test
                               n_purge_re_test n_purge_dups client_req/];
-
-########################################################################
-##                          O P T I O N S                             ##
-########################################################################
 my %clOptions;
 GetOptions(
     'help|h'               => \($clOptions{'help'}= 0),
@@ -133,9 +133,11 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
     $runTime{'count'}= $digits;
 }
 
-##  -f option? list the field symbols which need to be displayed
+##  -f option? --field-set option? list the field symbols which need
+##  to be displayed
 my %optFields=();
-my @fieldSet= @{$fieldSets->{$clOptions{'field_set'}}};
+my $fsID= exists($fieldSets->{$clOptions{'field_set'}}) ? $clOptions{'field_set'} : 'default';
+my @fieldSet= @{$fieldSets->{$fsID}};
 
 for my $optionString (@fieldSet, @{$clOptions{'fields'}}) {
     for my $optionSymbol (split(',', $optionString)) {
