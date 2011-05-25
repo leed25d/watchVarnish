@@ -88,8 +88,10 @@ my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 ########################################################################
 ##                          O P T I O N S                             ##
 ########################################################################
+
 ##  field sets can be specified by name by calling out the --fieldSet
 ##  option
+
 my $fieldSets={};
 $fieldSets->{'empty'}=   [qw //];
 $fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
@@ -431,28 +433,37 @@ sub  hitFields{
     return(\%hitFields);
 }
 
+sub updateSummaryRatio {
+    my ($which, $p)= @_;
+    for (qw/cache_hit cache_miss/) {$summaryStats{$which}->{$_} += $p->{$_}};
+}
+
 sub calcHitRatio {
     my ($s)= @_;
     my $retVal='';
     my $p= $varnishServerStats{$s}; ##  for convenience.  a pointer.
     my $cur= hitFields($p->{'current'});
     my $calc= $cur;
-    my $ind= '*';
+    updateSummaryRatio('curRatio', $cur);
 
     if (scalar(@{$p->{'last'}})) {
         my $lst= hitFields($p->{'last'});
         my $delta= { map {($_, ($cur->{$_} - $lst->{$_}))} ('cache_hit', 'cache_miss') };
         if ($delta->{'cache_hit'} > 1 && $delta->{'cache_miss'} > 1) {
             $calc= $delta;
-            $ind= ' ';
 
         }
     }
 
-    my $perCent= ($calc->{'cache_hit'} / ($calc->{'cache_hit'} + $calc->{'cache_miss'})) * 100;
-    $retVal= sprintf("%20.20s", sprintf("%6.2f %s", $perCent, $ind || ' '));
-    $summaryStats{'ratio'}->{'cache_hit'} += $calc->{'cache_hit'};
-    $summaryStats{'ratio'}->{'cache_miss'} += $calc->{'cache_miss'};
+    my $calcPerCent= ($calc->{'cache_hit'} / ($calc->{'cache_hit'} + $calc->{'cache_miss'})) * 100;
+    my $calcDisp= sprintf("%6.2f", $calcPerCent);
+    updateSummaryRatio('deltaRatio', $calc) unless ($cur == $calc);
+    $calcDisp= '***   ' if ($cur == $calc);
+
+    my $curPerCent= ($cur->{'cache_hit'} / ($cur->{'cache_hit'} + $cur->{'cache_miss'})) * 100;
+    my $curDisp= sprintf("%6.2f", $curPerCent);
+
+    $retVal= sprintf("%20.20s", sprintf('%2.2s%s%2.2s%s', ' ', $curDisp, ' ', $calcDisp));
     return($retVal);
 }
 
@@ -507,26 +518,38 @@ sub serverStats {
     return $ret;
 }
 
-sub initSummaryStats {
-    for (@descAry) {initSummaryStatsAttr($_)};
-    sub initSummaryStatsAttr {
+sub initsummaryStats {
+    for (@descAry) {initsummaryStatsAttr($_)};
+    sub initsummaryStatsAttr {
         $summaryStats{$_[0]}= {'cur', 0, 'delta', 0};
     }
-    $summaryStats{'ratio'}= {'cache_hit', 0, 'cache_miss', 0};
+    $summaryStats{'curRatio'}= {'cache_hit', 0, 'cache_miss', 0};
+    $summaryStats{'deltaRatio'}= {'cache_hit', 0, 'cache_miss', 0};
+}
+
+sub caclAggregateHitRatio {
+    my ($p)= (@_);
+    my $ret= '  ***  ';
+    my $denom= $p->{'cache_hit'} + $p->{'cache_miss'};
+    if ($denom > 0) {
+        my $perCent= ($p->{'cache_hit'} / ($p->{'cache_hit'} + $p->{'cache_miss'})) * 100;
+        $ret = sprintf("%6.2f", $perCent);
+    }
+    return $ret;
 }
 
 sub serverStatsSummary {
     my $ret= sprintf('%-17.17s',"Summary Stats") . "\n";
 
-    ##  aggregate hit ratio
-    my $p= $summaryStats{'ratio'};  ##  for convenience.   a pointer.
-    my $denom= $p->{'cache_hit'} + $p->{'cache_miss'};
-    if ($denom > 0) {
-        my $perCent= ($p->{'cache_hit'} / ($p->{'cache_hit'} + $p->{'cache_miss'})) * 100;
-        $ret .= sprintf("%20.20s: %15.2f\n", 'hit_ratio', $perCent);
+    ##  hit ratio
+    if ($clOptions{'ratio'}) {
+        $ret .= sprintf("%20.20s:    %8.8s      %8.8s\n",
+                        'hit_ratio',
+                        caclAggregateHitRatio($summaryStats{'curRatio'}),
+                        caclAggregateHitRatio($summaryStats{'deltaRatio'}));
     }
 
-    ##  fields
+    ##  status fields
     for (@descAry) {$ret .= appendSummaryValueField($_)};
     sub appendSummaryValueField {
         return(sprintf("%20.20s: %15d %+8d\n",
@@ -560,7 +583,7 @@ while (loopControl(\%runTime)) {
 
     ##  dump server stats on STDOUT
     my $outStr= "\n\n${\(fmtHeaderLine())}\n";
-    initSummaryStats();
+    initsummaryStats();
 
     for my $server (@varnishServers) {
         my $p= $varnishServerStats{$server}; ##  for convenience.  a pointer.
