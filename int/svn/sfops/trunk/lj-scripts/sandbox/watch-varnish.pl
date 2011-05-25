@@ -563,7 +563,7 @@ sub serverStatsSummary {
 ##                             M A I N                                 ##
 #########################################################################
 ##  (main) create threads
-for my $server (@varnishServers) {kickOff($server)};
+for (@varnishServers) {kickOff($_)};
 sub kickOff {
     my ($s)= @_;
 
