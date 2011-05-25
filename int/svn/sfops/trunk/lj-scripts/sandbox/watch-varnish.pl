@@ -358,28 +358,28 @@ sub  countSeconds{
 ##  appropriately.
 sub getServerStats {
     my ($time)= @_;
-    for my $server (@varnishServers) {
-        $varnishServerStats{$server}->{'stale'}++
-    }
+
+    for (@varnishServers) {$varnishServerStats{$_}->{'stale'}++}
     return unless (my $count= $q->pending());
 
+    ##  get all the work out of the queue, then process each element
     my @ary= map {$q->dequeue_nb()} (1..$count);
-
-    for my $hp (@ary) {
-        my $server= $hp->{'server'};
+    for my $element (@ary) {
+        my $server= $element->{'server'};
         my $p= $varnishServerStats{$server};  ##  for convenience.  a pointer.
 
-        my $ap= [ split("\n", $hp->{'lines'}) ];
-        next unless scalar(@$ap);
+        ##  $newAryp is a pointer to a new array of data from $server
+        my $newAryp= [ split("\n", $element->{'lines'}) ];
+        next unless scalar(@$newAryp);
 
         ##  the %varnishServerStats has two arrays of statistics for
-        ##  each server: the most recently acquired array and the
-        ##  previous one
-        if (arraysDifferent($p->{'current'}, $ap)) {
+        ##  each server: the most recently acquired (current) array
+        ##  and the last one
+        if (arraysDifferent($p->{'current'}, $newAryp)) {
             if (scalar(@{$p->{'current'}}) && arraysDifferent($p->{'current'}, $p->{'last'})){
                 $p->{'last'}= $p->{'current'};
             }
-            $p->{'current'}= $ap;
+            $p->{'current'}= $newAryp;
             $p->{'stale'}= 0;
         }
     }
@@ -586,10 +586,7 @@ while (loopControl(\%runTime)) {
     initsummaryStats();
 
     for my $server (@varnishServers) {
-        my $p= $varnishServerStats{$server}; ##  for convenience.  a pointer.
-        $outStr .= sprintf("%-12.12s%s\n",
-                           $server,
-                           serverStats($server));
+        $outStr .= sprintf("%-12.12s%s\n", $server, serverStats($server));
     }
 
     $outStr .= serverStatsSummary();
