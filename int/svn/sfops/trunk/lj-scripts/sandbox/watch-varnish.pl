@@ -492,7 +492,7 @@ sub serverStats {
     sub descValue {
         my($sLine)= @_;
         my $temp;
-        my @ary= (($temp= $sLine) =~ /\s+(\S*)\s+(.*)$/);
+        my @ary= (($temp= $sLine) =~ /^\s*(\S+)\s+(.*)$/);
         return () unless (scalar(@ary) == 2);
         return($ary[1], $sLine);
     }
@@ -511,8 +511,8 @@ sub serverStats {
         my $str='';
         my $descr= $descAry[$i];
 
-        if ($current[$i] eq $fakeEntry|| $last[$i] eq $fakeEntry) {
-            $str= '***';
+        if ($current[$i] eq $fakeEntry || $last[$i] eq $fakeEntry) {
+             $str= '***'
 
         } else {
             my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
