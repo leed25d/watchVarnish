@@ -99,13 +99,12 @@ my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 ########################################################################
 ##  field sets can be specified by name by calling out the --fieldSet
 ##  option
-
 my $fieldSets={};
 $fieldSets->{'empty'}=   [qw //];
 $fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
 $fieldSets->{'purges'}=  [qw /n_purge n_ban_add n_ban_retire n_ban_obj_test
                               n_ban_re_test n_ban_dups client_req/];
-$fieldSets->{'queues'}=  [qw /n_wrk n_wrk_create n_wrk_failed n_wrk_max n_wrk_queue 
+$fieldSets->{'queues'}=  [qw /n_wrk n_wrk_create n_wrk_failed n_wrk_max n_wrk_queue
                               n_wrk_overflow n_wrk_drop/];
 
 my %clOptions;
@@ -123,7 +122,7 @@ GetOptions(
 ##print "Options Hash==>>@{[Dumper(\%clOptions)]}\n";
 ##exit;
 
-##  -h option?  print a mesage and exit
+##  -h option?  print a message and exit
 die $usage if ($clOptions{'help'});
 
 ##  -l option?  just print a list of fields and descriptions then exit
@@ -180,7 +179,7 @@ if (@{$clOptions{'servers'}}) {
     }
 }
 
-##  -p option? get pool file.  (-s  binds more tightly than -p)
+##  -p option? get pool file.  (-s  has higher precedence -p)
 unless (keys(%varnishServers)){
     my $poolFile = $clOptions{'pool_file'} || "$ENV{LJHOME}/etc/pool_varnish.txt";
     die "Can't determine pool file" unless defined($poolFile);
@@ -440,12 +439,12 @@ sub calcHitRatio {
         }
     }
 
-    my $calcPerCent= ($calc->{'cache_hit'} / ($calc->{'cache_hit'} + $calc->{'cache_miss'})) * 100;
+    my $calcPerCent= ($calc->{'cache_hit'} / (($calc->{'cache_hit'} + $calc->{'cache_miss'}) || 1.0)) * 100;
     my $calcDisp= sprintf("%6.2f", $calcPerCent);
     updateSummaryRatio('deltaRatio', $calc) unless ($cur == $calc);
     $calcDisp= '***   ' if ($cur == $calc);
 
-    my $curPerCent= ($cur->{'cache_hit'} / ($cur->{'cache_hit'} + $cur->{'cache_miss'})) * 100;
+    my $curPerCent= ($cur->{'cache_hit'} / (($cur->{'cache_hit'} + $cur->{'cache_miss'}) || 1.0)) * 100;
     my $curDisp= sprintf("%6.2f", $curPerCent);
 
     $retVal= sprintf("%20.20s", sprintf('%2.2s%s%2.2s%s', ' ', $curDisp, ' ', $calcDisp));
@@ -517,7 +516,7 @@ sub caclAggregateHitRatio {
     my $ret= '  ***  ';
     my $denom= $p->{'cache_hit'} + $p->{'cache_miss'};
     if ($denom > 0) {
-        my $perCent= ($p->{'cache_hit'} / ($p->{'cache_hit'} + $p->{'cache_miss'})) * 100;
+        my $perCent= ($p->{'cache_hit'} / (($p->{'cache_hit'} + $p->{'cache_miss'}) || 1.0)) * 100;
         $ret = sprintf("%6.2f", $perCent);
     }
     return $ret;
@@ -547,7 +546,6 @@ sub serverStatsSummary {
 #########################################################################
 ##                             M A I N                                 ##
 #########################################################################
-##  (main) create threads
 for (@varnishServers) {kickOff($_)};
 sub kickOff {
     my ($s)= @_;
