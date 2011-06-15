@@ -44,12 +44,12 @@ Usage:
         --servers|s       Gather stats for the specified servers only
         --iterations|i    Iterations
         --pool-file|p     Pool file to use
-        --List-Fields|l   Print the list of legal field names on STDOUT
+        --list-fields|l   Print the list of legal field names on STDOUT
 
 NOTES:
 
-    --[no]clear  clear the screen is cleared by default [or not] on
-                 each loop iteraion.  default --clear
+    --[no]clear  the screen is cleared by default [or not] on each loop
+                 iteraion.  default --clear
 
     --[no]ratio  display the hit ratio [or not] default --ratio.
 
@@ -97,15 +97,14 @@ my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 ########################################################################
 ##                          O P T I O N S                             ##
 ########################################################################
-
 ##  field sets can be specified by name by calling out the --fieldSet
 ##  option
 
 my $fieldSets={};
 $fieldSets->{'empty'}=   [qw //];
 $fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
-$fieldSets->{'purges'}=  [qw /n_purge n_purge_add n_purge_retire n_purge_obj_test
-                              n_purge_re_test n_purge_dups client_req/];
+$fieldSets->{'purges'}=  [qw /n_purge n_ban_add n_ban_retire n_ban_obj_test
+                              n_ban_re_test n_ban_dups client_req/];
 $fieldSets->{'queues'}=  [qw /n_wrk n_wrk_create n_wrk_failed n_wrk_max n_wrk_queue 
                               n_wrk_overflow n_wrk_drop/];
 
@@ -161,7 +160,7 @@ for my $optionString (@fieldSet, @{$clOptions{'fields'}}) {
 }
 die "fields array is empty.  nothing to do\n" unless scalar(keys(%optFields));
 
-#  establish an ordering relation.  this is the order that fields
+##  establish an ordering relation.  this is the order that fields
 ##  will appear on the output line
 for my $symb (keys(%optFields)) {$optFields{$symb}= optFieldOrder($symb)};
 sub optFieldOrder {
@@ -232,33 +231,8 @@ my @threadAry;
 sub initializeTelnet {
     my ($s)= @_;
     my $telnet = new Net::Telnet();
-    eval '$telnet->open(Host => $s,Port => 6082, Timeout => $connectTimeoutSecs)';
+    eval '$telnet->open(Host => $s,Port => 7600, Timeout => $connectTimeoutSecs)';
     return undef if $@;
-
-    my $errmsg='OK';
-
-    ##  skip lines to 'quit'
-    while (1) {
-        my $line= $telnet->getline(Errmode => "return", Timeout => $slewTimeoutSecs);
-        if (!$line) {
-            $errmsg= $telnet->errmsg();
-            last;
-        }
-        last if $line =~ /'quit'/;
-    }
-    return undef unless $errmsg eq 'OK';
-
-    ##  skip until empty line
-    while (1) {
-        my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
-        if (!$line) {
-            $errmsg= $telnet->errmsg();
-            last;
-        }
-        chomp $line;
-        last unless length($line);
-    }
-    return undef unless $errmsg eq 'OK';
     return($telnet);
 }
 
@@ -271,7 +245,7 @@ sub getCurrentStats {
     my @lines=();
 
     $telnet->errmode("return");
-    $errmsg= $telnet->errmsg() unless ($telnet->print('stats'));
+    $errmsg= $telnet->errmsg() unless ($telnet->print('varn_stats'));
     if ($errmsg eq 'OK') {
         while (1) {
             my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
@@ -289,7 +263,6 @@ sub getCurrentStats {
         $sap->{'tn'}= undef;
     }
     $sap->{'getCurrentStatsMessage'}= $errmsg;
-    $sap->{'getCurrentStatsRetcode'}= shift @lines if @lines;
     $sap->{'lines'}= join("\n", @lines);
     return;
 }
@@ -315,7 +288,7 @@ sub  doVarnishServer {
         my $hp= {}; share($hp);
         $hp->{'server'}= $sap->{'server'};
 
-        for my $a ('getCurrentStatsMessage', 'getCurrentStatsRetcode', 'lines') {$hp->{$a}= $sap->{$a}};
+        for my $a ('getCurrentStatsMessage', 'lines') {$hp->{$a}= $sap->{$a}};
         $q->enqueue($hp);
 
         sleep 1;
@@ -512,7 +485,7 @@ sub serverStats {
         my $descr= $descAry[$i];
 
         if ($current[$i] eq $fakeEntry || $last[$i] eq $fakeEntry) {
-             $str= '***'
+             $str= '***';
 
         } else {
             my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
