@@ -53,7 +53,7 @@ NOTES:
 
     --[no]ratio  display the hit ratio [or not] default --ratio.
 
-    --field-set  this is one of {empty, default, purges, queues}
+    --field-set  this is one of {empty, default, bans, queues}
 
     --fields     is a comma separated list of field names to display,
                  these are added to the fields specified by the
@@ -102,7 +102,7 @@ my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 my $fieldSets={};
 $fieldSets->{'empty'}=   [qw //];
 $fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
-$fieldSets->{'purges'}=  [qw /n_purge n_ban_add n_ban_retire n_ban_obj_test
+$fieldSets->{'bans'}=    [qw /n_ban n_ban_add n_ban_retire n_ban_obj_test
                               n_ban_re_test n_ban_dups client_req/];
 $fieldSets->{'queues'}=  [qw /n_wrk n_wrk_create n_wrk_failed n_wrk_max n_wrk_queue
                               n_wrk_overflow n_wrk_drop/];
