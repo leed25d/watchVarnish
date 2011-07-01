@@ -478,15 +478,8 @@ sub serverStats {
     ##
     ##         . . .  and so forth . . .
     ##  }
-    my %curNameLines= map {descValue($_)} (@{$p->{'current'}});
-    my %lstnamelines= map {descValue($_)} (@{$p->{'last'}});
-    sub descValue {
-        my($sLine)= @_;
-        my $temp;
-        my @ary= (($temp= $sLine) =~ /^\s*(\S+)\s+(.*)$/);
-        return () unless (scalar(@ary) == 2);
-        return($ary[0], $sLine);
-    }
+    my %curNameLines= map {(/(\S+)/, $_)} (@{$p->{'current'}});
+    my %lstnamelines= map {(/(\S+)/, $_)} (@{$p->{'last'}});
 
     ##  determine the numer of seconds which have elapsed between the
     ##  most recent two measurements
