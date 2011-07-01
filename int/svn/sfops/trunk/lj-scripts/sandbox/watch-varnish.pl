@@ -223,7 +223,7 @@ my %varnishServerStats;
 my $q = Thread::Queue->new();
 my @threadAry;
 
-sub initializeTelnet {
+sub thr_initializeTelnet {
     my ($s)= @_;
     my $telnet = new Net::Telnet();
     eval '$telnet->open(Host => $s,Port => 7600, Timeout => $connectTimeoutSecs)';
@@ -231,7 +231,7 @@ sub initializeTelnet {
     return($telnet);
 }
 
-sub getCurrentStats {
+sub thr_getCurrentStats {
     my ($sap)= @_;
     $sap->{'lines'}= '';
     return unless my $telnet= $sap->{'tn'};
@@ -263,7 +263,7 @@ sub getCurrentStats {
 }
 
 ##  Varnish server thread
-sub  doVarnishServer {
+sub  thr_doVarnishServer {
     my ($sName)= @_;
 
     ##  server attributes pointer.
@@ -274,10 +274,10 @@ sub  doVarnishServer {
     while (loopControl(\%runTime)) {
         ##  initialize a telnet object maybe
         if (!defined($sap->{'tn'})) {
-            do {$sap->{'tn'}= initializeTelnet($sName); sleep 2 unless $sap->{'tn'}} until $sap->{'tn'};
+            do {$sap->{'tn'}= thr_initializeTelnet($sName); sleep 2 unless $sap->{'tn'}} until $sap->{'tn'};
         }
 
-        getCurrentStats($sap);
+        thr_getCurrentStats($sap);
         next unless (defined($sap->{'tn'})); ##  in case the telnet connection died
 
         my $hp= {}; share($hp);
@@ -297,7 +297,7 @@ sub  doVarnishServer {
 ##        --  stop after a given time period
 ##        --  stop after a given number of iterations
 ##        --  stop on receipt of SIGINT
-##  See the Options code or look at sage or --help
+##  See the Options code or look at usage or --help
 my %checkIterate= ('iterations' => \&countIterations, 'seconds' => \&countSeconds);
 sub loopControl {
     my ($rh)= @_;
@@ -561,7 +561,7 @@ sub kickOff {
     $varnishServerStats{$s}->{'stale'}= 0;
     $varnishServerStats{$s}->{'name'}= $s;
 
-    my $thr= threads->create(sub {doVarnishServer($_[0])}, ($s));
+    my $thr= threads->create(sub {thr_doVarnishServer($_[0])}, ($s));
     push(@threadAry, $thr) if $thr;
 }
 
