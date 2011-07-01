@@ -461,6 +461,24 @@ sub serverStats {
     my $p= $varnishServerStats{$s};  ##  for convenience.  a pointer.
     return "No Data from Server" unless scalar(@{$p->{'current'}});
 
+
+    ##  these next two hashes  %curNameLines and  %lstNameLines are of the form
+    ##     'name'  => 'line'
+    ##
+    ##  where $line is a string like one of these:
+    ##    'cache_hit              5736681        72.97 Cache hits',
+    ##    'cache_hitpass             6045         0.08 Cache hits for pass',
+    ##    'cache_miss             3034994        38.61 Cache misses',
+    ##    'backend_conn           3254235        41.39 Backend conn. success',
+    ##  and $name is the first attribute of $line, thus:
+    ##  {
+    ##     'cache_hit'     => 'cache_hit              5736681        72.97 Cache hits',
+    ##     'cache_hitpass' => 'cache_hitpass             6045         0.08 Cache hits for pass',
+    ##     'cache_miss'    => 'cache_miss             3034994        38.61 Cache misses',
+    ##     'backend_conn'  => 'backend_conn           3254235        41.39 Backend conn. success',
+    ##
+    ##         . . .  and so forth . . .
+    ##  }
     my %curNameLines= map {descValue($_)} (@{$p->{'current'}});
     my %lastNameLines= map {descValue($_)} (@{$p->{'last'}});
     sub descValue {
