@@ -464,12 +464,13 @@ sub serverStats {
     ##  these next two hashes  %curNameLines and  %lstNameLines are of the form
     ##     'name'  => 'line'
     ##
-    ##  where $line is a string like one of these:
+    ##  where 'line' is a string like one of these:
     ##    'cache_hit              5736681        72.97 Cache hits',
     ##    'cache_hitpass             6045         0.08 Cache hits for pass',
     ##    'cache_miss             3034994        38.61 Cache misses',
     ##    'backend_conn           3254235        41.39 Backend conn. success',
-    ##  and $name is the first attribute of $line, thus:
+    ##
+    ##  and 'name' is the first attribute of 'line', thus:
     ##  {
     ##     'cache_hit'     => 'cache_hit              5736681        72.97 Cache hits',
     ##     'cache_hitpass' => 'cache_hitpass             6045         0.08 Cache hits for pass',
