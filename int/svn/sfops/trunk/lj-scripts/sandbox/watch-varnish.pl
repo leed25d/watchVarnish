@@ -271,7 +271,7 @@ sub  thr_doVarnishServer {
     $sap->{'server'}= $sName;
     $sap->{'tn'}= undef;
 
-    while (loopControl(\%runTime)) {
+    while (1) {
         ##  initialize a telnet object maybe
         if (!defined($sap->{'tn'})) {
             do {$sap->{'tn'}= thr_initializeTelnet($sName); sleep 2 unless $sap->{'tn'}} until $sap->{'tn'};
