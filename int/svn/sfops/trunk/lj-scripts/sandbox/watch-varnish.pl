@@ -372,8 +372,9 @@ sub getServerStats {
 ##  two arrays are the same if
 ##    --they have the same cardinality AND
 ##    --their values are pairwise equivalent
-##  there is an assumption here, a valid one for this dataset, that an
-##  array will never contain multiple elements with the same value.
+##  there is an assumption here, and it is a valid one for this
+##  dataset, that an array will never contain multiple elements with
+##  the same value.
 sub arraysDifferent {
     my ($aryRef1, $aryRef2)= @_;
     return 1 if (scalar(@$aryRef1) != scalar(@$aryRef2));
