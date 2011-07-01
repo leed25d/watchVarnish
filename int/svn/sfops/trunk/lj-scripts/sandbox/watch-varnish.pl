@@ -480,17 +480,17 @@ sub serverStats {
     ##         . . .  and so forth . . .
     ##  }
     my %curNameLines= map {(/(\S+)/, $_)} (@{$p->{'current'}});
-    my %lstnamelines= map {(/(\S+)/, $_)} (@{$p->{'last'}});
+    my %lstNameLines= map {(/(\S+)/, $_)} (@{$p->{'last'}});
 
     ##  determine the numer of seconds which have elapsed between the
     ##  most recent two measurements
     my $curUptime= (split('\s+', $curNameLines{'uptime'}))[1] || 1;
-    my $lstUptime= (split('\s+', $lstnamelines{'uptime'}))[1] || 1;
+    my $lstUptime= (split('\s+', $lstNameLines{'uptime'}))[1] || 1;
     $deltaSeconds= ($curUptime>$lstUptime) ? $curUptime-$lstUptime : 1;
 
     my $fakeEntry='XXX XXX';
     my @current= map {(exists($curNameLines{$_})) ? $curNameLines{$_} : $fakeEntry} @nameAry;
-    my @last= map {(exists($lstnamelines{$_})) ? $lstnamelines{$_} : $fakeEntry} @nameAry;
+    my @last= map {(exists($lstNameLines{$_})) ? $lstNameLines{$_} : $fakeEntry} @nameAry;
 
     for (my $i=0; $i < scalar(@current); $i++) {
         my $str='';
