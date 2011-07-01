@@ -480,7 +480,7 @@ sub serverStats {
     ##         . . .  and so forth . . .
     ##  }
     my %curNameLines= map {descValue($_)} (@{$p->{'current'}});
-    my %lastNameLines= map {descValue($_)} (@{$p->{'last'}});
+    my %lstnamelines= map {descValue($_)} (@{$p->{'last'}});
     sub descValue {
         my($sLine)= @_;
         my $temp;
@@ -491,13 +491,13 @@ sub serverStats {
 
     ##  determine the numer of seconds which have elapsed between the
     ##  most recent two measurements
-    my @curUptime= map {/^(\S*)\s+(\S+).*$/} grep {/^uptime/i} (@{$p->{'current'}});
-    my @lstUptime= map {/^(\S*)\s+(\S+).*$/} grep {/^uptime/i} (@{$p->{'last'}});
-    $deltaSeconds= ($curUptime[1]>$lstUptime[1]) ? $curUptime[1]-$lstUptime[1]: 1;
+    my $curUptime= (split('\s+', $curNameLines{'uptime'}))[1] || 1;
+    my $lstUptime= (split('\s+', $lstnamelines{'uptime'}))[1] || 1;
+    $deltaSeconds= ($curUptime>$lstUptime) ? $curUptime-$lstUptime : 1;
 
     my $fakeEntry='XXX XXX';
     my @current= map {(exists($curNameLines{$_})) ? $curNameLines{$_} : $fakeEntry} @nameAry;
-    my @last= map {(exists($lastNameLines{$_})) ? $lastNameLines{$_} : $fakeEntry} @nameAry;
+    my @last= map {(exists($lstnamelines{$_})) ? $lstnamelines{$_} : $fakeEntry} @nameAry;
 
     for (my $i=0; $i < scalar(@current); $i++) {
         my $str='';
