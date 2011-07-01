@@ -421,7 +421,6 @@ sub  hitFields{
 
 sub updateSummaryRatio {
     my ($which, $p)= @_;
-    print "\$which= $which\n";
     for (qw/cache_hit cache_miss/) {$summaryStats{$which}->{$_} += $p->{$_}};
 }
 
