@@ -39,6 +39,7 @@ Usage:
         --help|h          Print this help and exit
         --[no]clear       Clear the screen [or not] on each loop iteration
         --[no]ratio       Display a hit ratio [or not]
+        --[no]summary     Display a summary block [or not]
         --field-set       Specify a starting field set
         --fields|f        Gather stats for the specified fields only
         --servers|s       Gather stats for the specified servers only
@@ -48,30 +49,33 @@ Usage:
 
 NOTES:
 
-    --[no]clear  the screen is cleared by default [or not] on each loop
-                 iteraion.  default --clear
+    --[no]clear   the screen is cleared by default [or not] on each loop
+                  iteraion.  default --clear
 
-    --[no]ratio  display the hit ratio [or not] default --ratio.
+    --[no]ratio   display the hit ratio [or not] default --ratio.
 
-    --field-set  this is one of {empty, default, bans, queues}
+    --[no]summary display a summay block [or not] default --summary.
 
-    --fields     is a comma separated list of field names to display,
-                 these are added to the fields specified by the
-                 --field-set option
+    --field-set   this is one of {empty, default, bans, queues}
 
-    --servers    is a comma separated list of server names to contact,
-                 the option may be specified multiple times.
+    --fields      is a comma separated list of field names to display,
+                  these are added to the fields specified by the
+                  --field-set option.  This option may be specified
+                  multiple times.
 
-    --iterations <forever|[nnnn[sS]] (string)> Default 300s. Specify
-                 how long to run the program.  If this is a number,
-                 run that number of iterations of the main loop. If it
-                 is a number followed by [sS] run until that many
-                 seconds have elapsed.  The (case-insesnitive) string
-                 'forever' without the quotes will put the program
-                 into an infinie loop.  In this case, terminate with
-                 C-c.
+    --servers     is a comma separated list of server names to contact,
+                  the option may be specified multiple times.
 
-    --pool-file pool file containing server anmes one pr line.
+    --iterations  <forever|[nnnn[sS]] (string)> Default 300s. Specify
+                  how long to run the program.  If this is a number,
+                  run that number of iterations of the main loop. If it
+                  is a number followed by [sS] run until that many
+                  seconds have elapsed.  The (case-insesnitive) string
+                  'forever' without the quotes will put the program
+                  into an infinie loop.  In this case, terminate with
+                  C-c.
+
+    --pool-file  pool file containing server names one pr line.
                  Default pool file is \$LJHOME/etc/pool_varnish.txt
                  The pool file will not be read if --servers option
                  was used.
@@ -90,9 +94,9 @@ my @allFields= map {
 } split(/\n/, do {local $/; my $txt= <$allfieldsFH>});
 $allfieldsFH->close();
 
+
 ##  map field symbols to the matching descriptions
 my %symbHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
-my %descHash= map {($_->{'desc'}, $_->{'symbol'})} @allFields;
 
 ########################################################################
 ##                          O P T I O N S                             ##
@@ -112,6 +116,7 @@ GetOptions(
     'help|h'               => \($clOptions{'help'}= 0),
     'clear!'               => \($clOptions{'clear'}= 1),
     'ratio!'               => \($clOptions{'ratio'}= 1),
+    'summary!'             => \($clOptions{'summary'}= 1),
     'field-set|=s'         => \($clOptions{'field_set'}= 'default'),
     'fields|f=s@'          => $clOptions{'fields'}= [],
     'servers|s=s@'         => $clOptions{'servers'}= [],
@@ -200,19 +205,10 @@ my @varnishServers= sort keys(%varnishServers);
 ##                      E N D    O P T I O N S                        ##
 ########################################################################
 ##
-##  construct an array of displayable fields
-my @descAry= ();
-for my $symbol (keys(%optFields)) {
-    next unless exists($symbHash{$symbol});
-    push(@descAry, $symbHash{$symbol});
-}
-
-##  the descriptions array needs to be sorted into display order
-@descAry= sort {of($a) <=> of($b)} (@descAry);
-sub of {
-    my ($p)= @_;
-    return($optFields{$descHash{$p}});
-}
+##  construct an array of displayable field names.  The order of elements
+##  in array is the order that they will appear on the output line.
+my %ordHash= map {$optFields{$_}, $_} (keys(%optFields));
+my @nameAry= map {$ordHash{$_}} sort {$a <=> $b} (keys(%ordHash));
 
 $SIG{INT} = \&programOff;
 sub programOff {
@@ -244,7 +240,7 @@ sub getCurrentStats {
     my @lines=();
 
     $telnet->errmode("return");
-    $errmsg= $telnet->errmsg() unless ($telnet->print('varn_stats'));
+    $errmsg= $telnet->errmsg() unless ($telnet->print('varn_stats_full'));
     if ($errmsg eq 'OK') {
         while (1) {
             my $line= $telnet->getline(Errmode => "return", Timeout => $readTimeoutSecs);
@@ -376,12 +372,14 @@ sub getServerStats {
 ##  two arrays are the same if
 ##    --they have the same cardinality AND
 ##    --their values are pairwise equivalent
+##  there is an assumption here, a valid one for this dataset, that an
+##  array will never contain multiple elements with the same value.
 sub arraysDifferent {
-    my ($p1, $p2)= @_;
-    return 1 if (scalar(@$p1) != scalar(@$p2));
-    my %count;
+    my ($aryRef1, $aryRef2)= @_;
+    return 1 if (scalar(@$aryRef1) != scalar(@$aryRef2));
 
-    foreach my $e (@$p1, @$p2) {$count{$e}++};
+    my %count;
+    foreach my $e (@$aryRef1, @$aryRef2) {$count{$e}++};
     foreach my $e (keys(%count)) {return 1 if ($count{$e} != 2)};
     return 0;
 }
@@ -403,15 +401,18 @@ sub fmtHeaderLine {
 sub  hitFields{
     my ($ap)= @_;
     ##  The @$ap array has a list of strings that look like this:
-    ##      '        2501  Client connections accepted',
-    ##      '          20  Client requests received',
-    ##      '          18  Cache hits',
-    ##      '           2  Cache misses',
+    ##    'cache_hit              5736681        72.97 Cache hits',
+    ##    'cache_hitpass             6045         0.08 Cache hits for pass',
+    ##    'cache_miss             3034994        38.61 Cache misses',
+    ##    'backend_conn           3254235        41.39 Backend conn. success',
+    ##
+    ##  return values for the 'cache_miss' and 'cache_hit' lines in a hash
+
     my %hitFields= map {getSymbolic($_, $ap)} ('cache_miss', 'cache_hit');
     sub getSymbolic {
-        my @ary= grep {/$symbHash{$_[0]}/} (@{$_[1]});
+        my @ary= grep {/^$_[0]/} (@{$_[1]});
         return ($_, 1) unless scalar(@ary);
-        $ary[0] =~ s/^\s+(\S+).*$/$1/;
+        $ary[0] =~ s/^\S+\s+(\d+).*$/$1/;
         return ($_, $ary[0]);
     }
     return(\%hitFields);
@@ -419,6 +420,7 @@ sub  hitFields{
 
 sub updateSummaryRatio {
     my ($which, $p)= @_;
+    print "\$which= $which\n";
     for (qw/cache_hit cache_miss/) {$summaryStats{$which}->{$_} += $p->{$_}};
 }
 
@@ -435,7 +437,6 @@ sub calcHitRatio {
         my $delta= { map {($_, ($cur->{$_} - $lst->{$_}))} ('cache_hit', 'cache_miss') };
         if ($delta->{'cache_hit'} > 1 && $delta->{'cache_miss'} > 1) {
             $calc= $delta;
-
         }
     }
 
@@ -459,41 +460,41 @@ sub serverStats {
     my $p= $varnishServerStats{$s};  ##  for convenience.  a pointer.
     return "No Data from Server" unless scalar(@{$p->{'current'}});
 
-    my %curDescLines= map {descValue($_)} (@{$p->{'current'}});
-    my %lastDescLines= map {descValue($_)} (@{$p->{'last'}});
+    my %curNameLines= map {descValue($_)} (@{$p->{'current'}});
+    my %lastNameLines= map {descValue($_)} (@{$p->{'last'}});
     sub descValue {
         my($sLine)= @_;
         my $temp;
         my @ary= (($temp= $sLine) =~ /^\s*(\S+)\s+(.*)$/);
         return () unless (scalar(@ary) == 2);
-        return($ary[1], $sLine);
+        return($ary[0], $sLine);
     }
 
     ##  determine the numer of seconds which have elapsed between the
     ##  most recent two measurements
-    my @curUptime= map {/\s*(\S*)\s*(.*)$/} grep {/client uptime/i} (@{$p->{'current'}});
-    my @lstUptime= map {/\s*(\S*)\s*(.*)$/} grep {/client uptime/i} (@{$p->{'last'}});
-    $deltaSeconds= ($curUptime[0]>$lstUptime[0]) ? $curUptime[0]-$lstUptime[0]: 1;
+    my @curUptime= map {/^(\S*)\s+(\S+).*$/} grep {/^uptime/i} (@{$p->{'current'}});
+    my @lstUptime= map {/^(\S*)\s+(\S+).*$/} grep {/^uptime/i} (@{$p->{'last'}});
+    $deltaSeconds= ($curUptime[1]>$lstUptime[1]) ? $curUptime[1]-$lstUptime[1]: 1;
 
     my $fakeEntry='XXX XXX';
-    my @current= map {(exists($curDescLines{$_})) ? $curDescLines{$_} : $fakeEntry} @descAry;
-    my @last= map {(exists($lastDescLines{$_})) ? $lastDescLines{$_} : $fakeEntry} @descAry;
+    my @current= map {(exists($curNameLines{$_})) ? $curNameLines{$_} : $fakeEntry} @nameAry;
+    my @last= map {(exists($lastNameLines{$_})) ? $lastNameLines{$_} : $fakeEntry} @nameAry;
 
     for (my $i=0; $i < scalar(@current); $i++) {
         my $str='';
-        my $descr= $descAry[$i];
+        my $name= $nameAry[$i];
 
         if ($current[$i] eq $fakeEntry || $last[$i] eq $fakeEntry) {
-             $str= '***';
+            $str= '***';
 
         } else {
-            my @cur= $current[$i] =~ /\s*(\S*)\s*(.*)$/;
-            my @lst= $last[$i] =~ /\s*(\S*)\s*(.*)$/;
-            my $t= (($cur[0] - $lst[0]) / $deltaSeconds);
+            my @cur= $current[$i] =~ /^(\S+)\s*(\S+).*$/;
+            my @lst= $last[$i] =~ /^(\S+)\s*(\S+).*$/;
+            my $t= (($cur[1] - $lst[1]) / $deltaSeconds);
 
-            $summaryStats{$descr}->{'cur'} += $cur[0];
-            $summaryStats{$descr}->{'delta'}  += sprintf('%d', $t);
-            $str= sprintf("%10d %+6d", $cur[0], $t);
+            $summaryStats{$name}->{'cur'} += $cur[1];
+            $summaryStats{$name}->{'delta'}  += sprintf('%d', $t);
+            $str= sprintf("%10d %+6d", $cur[1], $t);
         }
         $ret .= sprintf("%20.20s ", $str);
     }
@@ -503,7 +504,7 @@ sub serverStats {
 }
 
 sub initsummaryStats {
-    for (@descAry) {initsummaryStatsAttr($_)};
+    for (@nameAry) {initsummaryStatsAttr($_)};
     sub initsummaryStatsAttr {
         $summaryStats{$_[0]}= {'cur', 0, 'delta', 0};
     }
@@ -516,8 +517,7 @@ sub caclAggregateHitRatio {
     my $ret= '  ***  ';
     my $denom= $p->{'cache_hit'} + $p->{'cache_miss'};
     if ($denom > 0) {
-        my $perCent= ($p->{'cache_hit'} / (($p->{'cache_hit'} + $p->{'cache_miss'}) || 1.0)) * 100;
-        $ret = sprintf("%6.2f", $perCent);
+        $ret = sprintf("%6.2f", (($p->{'cache_hit'} / ($denom || 1.0)) * 100));
     }
     return $ret;
 }
@@ -534,18 +534,24 @@ sub serverStatsSummary {
     }
 
     ##  status fields
-    for (@descAry) {$ret .= appendSummaryValueField($_)};
+    for (@nameAry) {$ret .= appendSummaryValueField($_)};
     sub appendSummaryValueField {
         return(sprintf("%20.20s: %15d %+8d\n",
-                       $descHash{$_[0]},
+                       $_[0],
                        $summaryStats{$_[0]}->{'cur'},
                        $summaryStats{$_[0]}->{'delta'}));
     }
     return "\n$ret\n";
 }
+
 #########################################################################
 ##                             M A I N                                 ##
 #########################################################################
+
+##  start a thread for each varnish server.  This thread will telnet
+##  to port 7600, acquire stats data and queue that data for the main
+##  thread.  The main program will read from that queue in the
+##  getServerStats() subroutine.
 for (@varnishServers) {kickOff($_)};
 sub kickOff {
     my ($s)= @_;
@@ -559,20 +565,24 @@ sub kickOff {
     push(@threadAry, $thr) if $thr;
 }
 
+##  This is the main loop.  Get queued data from each server, format a
+##  stats line for each server and, optionally, display a summary
+##  block. keep it up until the loop control (set by the --iterations
+##  command line option) has expired.
 while (loopControl(\%runTime)) {
     my $loopTime= time;
 
     getServerStats($loopTime);
 
     ##  dump server stats on STDOUT
+    initsummaryStats() if $clOptions{'summary'};
     my $outStr= "\n\n${\(fmtHeaderLine())}\n";
-    initsummaryStats();
 
     for my $server (@varnishServers) {
         $outStr .= sprintf("%-12.12s%s\n", $server, serverStats($server));
     }
 
-    $outStr .= serverStatsSummary();
+    $outStr .= serverStatsSummary() if $clOptions{'summary'};
     system('clear') if $clOptions{'clear'};
     print $outStr;
     sleep 1;
