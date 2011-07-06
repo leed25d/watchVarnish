@@ -1,0 +1,8 @@
+Here we have a clone of the directory containing watch-varnish.pl.  I am 
+trying to extract the watch-varnish.pl program along with it's history.  I will
+then move the repo up to gitHub.
+
+
+Here's the command I use to clone off a working repo.
+       git clone --no-hardlinks /home/lee/FIRST/prodGitControlled/bil1Svn01 ./bil1Svn01Clone; cd bil1Svn01Clone/;git remote rm origin
+
