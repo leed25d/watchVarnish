@@ -8,7 +8,6 @@ use strict;
 sub dispatch;
 
 my $VERSION = "2.3";
-my $verbose = 1;
 my $VARNISHSTAT='/usr/bin/varnishstat';
 
 # TODO: add help cmd
