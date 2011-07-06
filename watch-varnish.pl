@@ -529,10 +529,7 @@ sub serverStats {
 }
 
 sub initsummaryStats {
-    for (@nameAry) {initsummaryStatsAttr($_)};
-    sub initsummaryStatsAttr {
-        $summaryStats{$_[0]}= {'cur', 0, 'delta', 0};
-    }
+    $summaryStats{$_}= {'cur', 0, 'delta', 0} for (@nameAry);
     $summaryStats{'curRatio'}= {'cache_hit', 0, 'cache_miss', 0};
     $summaryStats{'deltaRatio'}= {'cache_hit', 0, 'cache_miss', 0};
 }
