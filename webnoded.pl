@@ -48,14 +48,12 @@ sub dispatch {
 }
 
 
-
 # Commands processing
 sub varnStatsGet{
     ##  make sure that we are on a varnish machine
     my $retString='';
     if (! -e $VARNISHSTAT) {
         $retString= "ERROR:  This is not a Varnish machine";
-        $retString .="\n\$VARNISHSTAT: '$VARNISHSTAT' could not be found";
 
     } else {
         my $stats= qx/$VARNISHSTAT -1/;
