@@ -148,7 +148,6 @@ sub findALiveOne{
     my ($aryRef)= @_;
     my $telnet = new Net::Telnet();
     for my $s (@$aryRef) {
-        print "trying $s\n";
         eval '$telnet->open(Host => $s,Port => 7600, Timeout => $connectTimeoutSecs)';
         return $s unless $@;
     }
