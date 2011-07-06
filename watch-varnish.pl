@@ -82,22 +82,6 @@ NOTES:
 
 USAGE
 
-##  get a list of valid field names and descriptions from some random
-##  varnishserver
-my $allFieldsCmd= "ssh bil1-varn20 varnishstat -l 2>&1|egrep -v '^Field|^----|^Varnishstat'";
-my $allfieldsFH= FileHandle->new("$allFieldsCmd|");
-die "Can't open connection for fields list: $!" unless defined($allfieldsFH);
-
-my @allFields= map {
-    my ($s, $d)= /^\s*(\S*)\s+(.*)/;
-    {'symbol' => $s, 'desc' => $d}
-} split(/\n/, do {local $/; my $txt= <$allfieldsFH>});
-$allfieldsFH->close();
-
-
-##  map field symbols to the matching descriptions
-my %symbHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
-
 ########################################################################
 ##                          O P T I O N S                             ##
 ########################################################################
@@ -129,6 +113,62 @@ GetOptions(
 
 ##  -h option?  print a message and exit
 die $usage if ($clOptions{'help'});
+
+##  -s option? get server list
+my %varnishServers;
+if (@{$clOptions{'servers'}}) {
+    for my $serverString (@{$clOptions{'servers'}}) {
+        for my $serverName (split(',', $serverString)) {
+            $varnishServers{$serverName}= 1;
+        }
+    }
+}
+
+##  -p option? get pool file.  (-s  has higher precedence -p)
+unless (keys(%varnishServers)){
+    my $poolFile = $clOptions{'pool_file'} || "$ENV{LJHOME}/etc/pool_varnish.txt";
+    die "Can't determine pool file" unless defined($poolFile);
+
+    my $poolFH= FileHandle->new("< $poolFile");
+    die "Can't open varnish pool file: $poolFile, $!" unless defined($poolFH);
+
+    ##  read the file as one long string; split on newlines; grep out
+    ##  comments; build a hash (in case of duplicates).  all
+    ##  whitespace is removed in the map{}
+    %varnishServers= map {s/\s+//g; ($_,1)} grep {!/^#/} split(/\n/, do {local $/; my $txt= <$poolFH>});
+    close $poolFH;
+}
+die "servers array is empty.  nothing to do\n" unless keys(%varnishServers);
+my @varnishServers= sort keys(%varnishServers);
+
+
+##  get a list of valid field names and descriptions from some random
+##  varnishserver.  First, find live server:
+sub findALiveOne{
+    my ($aryRef)= @_;
+    my $telnet = new Net::Telnet();
+    for my $s (@$aryRef) {
+        print "trying $s\n";
+        eval '$telnet->open(Host => $s,Port => 7600, Timeout => $connectTimeoutSecs)';
+        return $s unless $@;
+    }
+    return undef;
+}
+my $liveServer= findALiveOne([(keys(%varnishServers))]);
+die "No living server could be found\n" unless $liveServer;
+
+my $allFieldsCmd= "ssh $liveServer varnishstat -l 2>&1|egrep -v '^Field|^----|^Varnishstat'";
+my $allfieldsFH= FileHandle->new("$allFieldsCmd|");
+die "Can't open connection for fields list: $!" unless defined($allfieldsFH);
+
+my @allFields= map {
+    my ($s, $d)= /^\s*(\S*)\s+(.*)/;
+    {'symbol' => $s, 'desc' => $d}
+} split(/\n/, do {local $/; my $txt= <$allfieldsFH>});
+$allfieldsFH->close();
+
+##  map field symbols to the matching descriptions
+my %symbHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
 
 ##  -l option?  just print a list of fields and descriptions then exit
 if ($clOptions{'list_fields'}) {
@@ -174,32 +214,6 @@ sub optFieldOrder {
     }
 }
 
-##  -s option? get server list
-my %varnishServers;
-if (@{$clOptions{'servers'}}) {
-    for my $serverString (@{$clOptions{'servers'}}) {
-        for my $serverName (split(',', $serverString)) {
-            $varnishServers{$serverName}= 1;
-        }
-    }
-}
-
-##  -p option? get pool file.  (-s  has higher precedence -p)
-unless (keys(%varnishServers)){
-    my $poolFile = $clOptions{'pool_file'} || "$ENV{LJHOME}/etc/pool_varnish.txt";
-    die "Can't determine pool file" unless defined($poolFile);
-
-    my $poolFH= FileHandle->new("< $poolFile");
-    die "Can't open varnish pool file: $poolFile, $!" unless defined($poolFH);
-
-    ##  read the file as one long string; split on newlines; grep out
-    ##  comments; build a hash (in case of duplicates).  all
-    ##  whitespace is removed in the map{}
-    %varnishServers= map {s/\s+//g; ($_,1)} grep {!/^#/} split(/\n/, do {local $/; my $txt= <$poolFH>});
-    close $poolFH;
-}
-die "servers array is empty.  nothing to do\n" unless keys(%varnishServers);
-my @varnishServers= sort keys(%varnishServers);
 
 ########################################################################
 ##                      E N D    O P T I O N S                        ##
