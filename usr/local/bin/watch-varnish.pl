@@ -196,9 +196,9 @@ my %optFields=();
 my $fsID= exists($fieldSets->{$clOptions{'field_set'}}) ? $clOptions{'field_set'} : 'default';
 my @fieldSet= @{$fieldSets->{$fsID}};
 
-
 ##  map field names to their index position in the list of status lines
 my %validFieldNames= do {my $i=1; map {($_->{'symbol'}, $i++)} (@allFields) };
+
 for my $optionString (@fieldSet, @{$clOptions{'fields'}}) {
     for my $optionSymbol (split(',', $optionString)) {
         next unless exists($validFieldNames{$optionSymbol});
