@@ -160,6 +160,10 @@ my $allFieldsCmd= "ssh $liveServer varnishstat -l 2>&1|egrep -v '^Field|^----|^V
 my $allfieldsFH= FileHandle->new("$allFieldsCmd|");
 die "Can't open connection for fields list: $!" unless defined($allfieldsFH);
 
+##  the @allFields array is an array of hashes like this:
+##      my @allFields= ({'symbol' => 'client_conn',      'desc'  => 'Client connections accepted'},
+##                      {'symbol' => 'client_drop',      'desc'  => 'Connection dropped, no sess/wrk'},
+##                      {'symbol' => 'client_req',       'desc'  => 'Client requests received'})
 my @allFields= map {
     my ($s, $d)= /^\s*(\S*)\s+(.*)/;
     {'symbol' => $s, 'desc' => $d}
@@ -203,8 +207,8 @@ for my $optionString (@fieldSet, @{$clOptions{'fields'}}) {
 }
 die "fields array is empty.  nothing to do\n" unless scalar(keys(%optFields));
 
-##  establish an ordering relation.  this is the order that fields
-##  will appear on the output line
+##  establish an ordering relation for displayable fields.  this is
+##  the order that fields will appear on the output line
 for my $symb (keys(%optFields)) {$optFields{$symb}= optFieldOrder($symb)};
 sub optFieldOrder {
     my ($s)= @_;
@@ -212,7 +216,6 @@ sub optFieldOrder {
         return $i if ($allFields[$i]->{'symbol'} eq $s);
     }
 }
-
 
 ########################################################################
 ##                      E N D    O P T I O N S                        ##
