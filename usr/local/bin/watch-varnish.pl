@@ -111,10 +111,10 @@ GetOptions(
 ##print "Options Hash==>>@{[Dumper(\%clOptions)]}\n";
 ##exit;
 
-##  -h option?  print a message and exit
+##  -h --help option?  print a message and exit
 die $usage if ($clOptions{'help'});
 
-##  -s option? get server list
+##  -s --servers option? get server list
 my %varnishServers;
 if (@{$clOptions{'servers'}}) {
     for my $serverString (@{$clOptions{'servers'}}) {
@@ -124,7 +124,7 @@ if (@{$clOptions{'servers'}}) {
     }
 }
 
-##  -p option? get pool file.  (-s  has higher precedence -p)
+##  -p --pool-file option? get pool file.  (-s  has higher precedence -p)
 unless (keys(%varnishServers)){
     my $poolFile = $clOptions{'pool_file'} || "$ENV{LJHOME}/etc/pool_varnish.txt";
     die "Can't determine pool file" unless defined($poolFile);
@@ -170,13 +170,13 @@ my @allFields= map {
 } split(/\n/, do {local $/; my $txt= <$allfieldsFH>});
 $allfieldsFH->close();
 
-##  -l option?  just print a list of fields and descriptions then exit
+##  -l --list-fields option?  just print a list of fields and descriptions then exit
 if ($clOptions{'list_fields'}) {
     for my $f (@allFields) {printf "%-30.30s %s\n", $f->{'symbol'}, $f->{'desc'}};
     exit;
 }
 
-##  -i option? limit program run time.
+##  -i --iterations option? limit program run time.
 my %runTime= ('stop'=>0);
 if (lc($clOptions{'iterations'}) eq 'forever') {
     $runTime{'limit'}= 'forever';
@@ -190,7 +190,7 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
     $runTime{'count'}= $digits;
 }
 
-##  -f option? --field-set option? list the field symbols which need
+##  -f --field-set option? list the field symbols which need
 ##  to be displayed
 my %optFields=();
 my $fsID= exists($fieldSets->{$clOptions{'field_set'}}) ? $clOptions{'field_set'} : 'default';
