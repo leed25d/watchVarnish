@@ -170,8 +170,10 @@ my @allFields= map {
 } split(/\n/, do {local $/; my $txt= <$allfieldsFH>});
 $allfieldsFH->close();
 
-##  map field symbols to the matching descriptions
-my %symbHash= map {($_->{'symbol'}, $_->{'desc'})} @allFields;
+##  map field symbols to their index position in the list of status lines
+my $index=1;
+my %validFieldNames= map {($_->{'symbol'}, $index++)} @allFields;
+undef $index;
 
 ##  -l option?  just print a list of fields and descriptions then exit
 if ($clOptions{'list_fields'}) {
@@ -201,21 +203,11 @@ my @fieldSet= @{$fieldSets->{$fsID}};
 
 for my $optionString (@fieldSet, @{$clOptions{'fields'}}) {
     for my $optionSymbol (split(',', $optionString)) {
-        next unless exists($symbHash{$optionSymbol});
-        $optFields{$optionSymbol}= 1;
+        next unless exists($validFieldNames{$optionSymbol});
+        $optFields{$optionSymbol}= $validFieldNames{$optionSymbol};
     }
 }
 die "fields array is empty.  nothing to do\n" unless scalar(keys(%optFields));
-
-##  establish an ordering relation for displayable fields.  this is
-##  the order that fields will appear on the output line
-for my $symb (keys(%optFields)) {$optFields{$symb}= optFieldOrder($symb)};
-sub optFieldOrder {
-    my ($s)= @_;
-    for (my $i=0; $i<@allFields; $i++) {
-        return $i if ($allFields[$i]->{'symbol'} eq $s);
-    }
-}
 
 ########################################################################
 ##                      E N D    O P T I O N S                        ##
