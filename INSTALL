@@ -1,0 +1,20 @@
+1- Make sure that you are using perl 5.8.8 or better
+2- Make sure that you can resolve these dependencies:
+    use Getopt::Long;
+    use Net::Telnet;
+    use Data::Dumper;
+    use FileHandle;
+    use threads;
+    use threads::shared;
+    use Thread::Queue;
+
+3- copy 
+   etc/xinit.d/webnoded 
+   usr/local/bin/webnoded.pl
+
+to each of your varnish hosts and restart xinet.
+
+4- copy
+   usr/local/bin/watch-varnish.pl
+
+to your admin host

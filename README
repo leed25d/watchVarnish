@@ -3,19 +3,3 @@ of varnish servers.  A companion program, webnoded.pl, must be
 installed on each of the varnish servers and run by xinetd.  When you
 telniet in to port 7600, the webnoded.pl program responds to commands
 to dump varnish stats.
-
-------------------------------------------------------------------------
-##  this is the config file for xinted (stored in /etc/xinted.d/webnoded)
-
-service unlisted
-{
-        type            = UNLISTED
-        socket_type     = stream
-        protocol        = tcp
-        wait            = no
-        user            = root
-        server          = <path-to-webnoded>/webnoded.pl
-        port            = 7600
-        id              = webnoded-stream
-}
-------------------------------------------------------------------------
