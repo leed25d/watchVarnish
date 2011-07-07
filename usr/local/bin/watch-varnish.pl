@@ -170,11 +170,6 @@ my @allFields= map {
 } split(/\n/, do {local $/; my $txt= <$allfieldsFH>});
 $allfieldsFH->close();
 
-##  map field symbols to their index position in the list of status lines
-my $index=1;
-my %validFieldNames= map {($_->{'symbol'}, $index++)} @allFields;
-undef $index;
-
 ##  -l option?  just print a list of fields and descriptions then exit
 if ($clOptions{'list_fields'}) {
     for my $f (@allFields) {printf "%-30.30s %s\n", $f->{'symbol'}, $f->{'desc'}};
@@ -201,6 +196,11 @@ my %optFields=();
 my $fsID= exists($fieldSets->{$clOptions{'field_set'}}) ? $clOptions{'field_set'} : 'default';
 my @fieldSet= @{$fieldSets->{$fsID}};
 
+##  map field symbols to their index position in the list of status lines
+my $index=1;
+my %validFieldNames= map {($_->{'symbol'}, $index++)} @allFields;
+undef $index;
+
 for my $optionString (@fieldSet, @{$clOptions{'fields'}}) {
     for my $optionSymbol (split(',', $optionString)) {
         next unless exists($validFieldNames{$optionSymbol});
@@ -215,8 +215,7 @@ die "fields array is empty.  nothing to do\n" unless scalar(keys(%optFields));
 ##
 ##  construct an array of displayable field names.  The order of elements
 ##  in array is the order that they will appear on the output line.
-my %ordHash= map {$optFields{$_}, $_} (keys(%optFields));
-my @nameAry= map {$ordHash{$_}} sort {$a <=> $b} (keys(%ordHash));
+my @nameAry= sort {$optFields{$a} <=> $optFields{$b}} (keys(%optFields));
 
 $SIG{INT} = \&programOff;
 sub programOff {
