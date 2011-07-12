@@ -89,7 +89,7 @@ USAGE
 ##  option
 my $fieldSets={};
 $fieldSets->{'empty'}=   [qw //];
-$fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss/];
+$fieldSets->{'default'}= [qw /client_conn client_req cache_hit cache_miss uptime/];
 $fieldSets->{'bans'}=    [qw /n_ban n_ban_add n_ban_retire n_ban_obj_test
                               n_ban_re_test n_ban_dups client_req/];
 $fieldSets->{'queues'}=  [qw /n_wrk n_wrk_create n_wrk_failed n_wrk_max n_wrk_queue
