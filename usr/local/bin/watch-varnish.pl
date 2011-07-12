@@ -170,6 +170,9 @@ my @allFields= map {
 } split(/\n/, do {local $/; my $txt= <$allfieldsFH>});
 $allfieldsFH->close();
 
+##  map field names to their index position in the list of status lines
+my %validFieldNames= do {my $i=1; map {($_->{'symbol'}, $i++)} (@allFields) };
+
 ##  -l --list-fields option?  just print a list of fields and descriptions then exit
 if ($clOptions{'list_fields'}) {
     for my $f (@allFields) {printf "%-30.30s %s\n", $f->{'symbol'}, $f->{'desc'}};
@@ -195,9 +198,6 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
 my %optFields=();
 my $fsID= exists($fieldSets->{$clOptions{'field_set'}}) ? $clOptions{'field_set'} : 'default';
 my @fieldSet= @{$fieldSets->{$fsID}};
-
-##  map field names to their index position in the list of status lines
-my %validFieldNames= do {my $i=1; map {($_->{'symbol'}, $i++)} (@allFields) };
 
 for my $optionString (@fieldSet, @{$clOptions{'fields'}}) {
     for my $optionSymbol (split(',', $optionString)) {
