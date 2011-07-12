@@ -193,7 +193,7 @@ if (lc($clOptions{'iterations'}) eq 'forever') {
     $runTime{'count'}= $digits;
 }
 
-##  -f --field-set option? list the field symbols which need
+##  -f --fields option? list the field symbols which need
 ##  to be displayed
 my %optFields=();
 my $fsID= exists($fieldSets->{$clOptions{'field_set'}}) ? $clOptions{'field_set'} : 'default';
