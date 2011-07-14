@@ -1,5 +1,5 @@
-This is a program somewhat similar to varniststat which monitors a set
-of varnish servers.  A companion program, webnoded.pl, must be
-installed on each of the varnish servers and run by xinetd.  When you
-telniet in to port 7600, the webnoded.pl program responds to commands
-to dump varnish stats.
+This is a program somewhat similar to varniststat except that it will
+monitor a set of varnish servers instead of just a single server.  A
+companion program, webnoded.pl, must be installed on each of the
+varnish servers and run by xinetd.  When you telniet in to port 7600,
+the webnoded.pl program responds to commands to dump varnish stats.
